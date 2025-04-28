@@ -137,6 +137,11 @@ impl Lexer {
                 _ => self.errors.push("error".to_string()),
             };
         }
+        tokens.push(TokenInfo {
+            token: Token::Eof,
+            line,
+            lexeme: String::new(),
+        });
         return tokens;
     }
 }
