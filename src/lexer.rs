@@ -28,9 +28,9 @@ pub enum Token {
     Less,
     LessEqual,
 
-    Identifier { lexeme: String },
+    Identifier { name: String },
     String { literal: String },
-    Number { literal: f64, lexeme: String },
+    Number { literal: f64 },
 
     And,
     Class,
@@ -75,6 +75,12 @@ lazy_static! {
     };
 }
 
+pub struct TokenInfo {
+    pub token: Token,
+    pub line: usize,
+    pub lexeme: String,
+}
+
 pub struct Lexer {
     scanner: Scanner,
     errors: Vec<String>,
@@ -88,23 +94,30 @@ impl Lexer {
         }
     }
 
-    pub fn tokens(mut self) -> Vec<(Token, usize)> {
+    pub fn tokens(mut self) -> Vec<TokenInfo> {
         let mut chars = self.scanner.scan().peekable();
         let mut tokens = Vec::new();
         let mut line = 1;
 
         while let Some(char) = chars.next() {
+            let mut wrap_token = |t| {
+                tokens.push(TokenInfo {
+                    token: t,
+                    line,
+                    lexeme: char.to_string(),
+                })
+            };
             match char {
-                '(' => tokens.push((Token::LeftParen, line)),
-                ')' => tokens.push((Token::RightParen, line)),
-                '{' => tokens.push((Token::LeftBrace, line)),
-                '}' => tokens.push((Token::RightBrace, line)),
-                ',' => tokens.push((Token::Comma, line)),
-                '.' => tokens.push((Token::Dot, line)),
-                '-' => tokens.push((Token::Minus, line)),
-                '+' => tokens.push((Token::Plus, line)),
-                ';' => tokens.push((Token::SemiColon, line)),
-                '*' => tokens.push((Token::Star, line)),
+                '(' => wrap_token(Token::LeftParen),
+                ')' => wrap_token(Token::RightParen),
+                '{' => wrap_token(Token::LeftBrace),
+                '}' => wrap_token(Token::RightBrace),
+                ',' => wrap_token(Token::Comma),
+                '.' => wrap_token(Token::Dot),
+                '-' => wrap_token(Token::Minus),
+                '+' => wrap_token(Token::Plus),
+                ';' => wrap_token(Token::SemiColon),
+                '*' => wrap_token(Token::Star),
                 '!' | '=' | '<' | '>' | '/' => {
                     line = symbol_lookahead(char, &mut chars, &mut tokens, line);
                 }
@@ -122,7 +135,7 @@ impl Lexer {
                 char if char.is_ascii_whitespace() => {}
 
                 _ => self.errors.push("error".to_string()),
-            }
+            };
         }
         return tokens;
     }
@@ -131,7 +144,7 @@ impl Lexer {
 fn identifier_lookahead(
     char: char,
     chars: &mut Peekable<Chars<'_>>,
-    tokens: &mut Vec<(Token, usize)>,
+    tokens: &mut Vec<TokenInfo>,
     line: usize,
 ) {
     let mut identifier = char.to_string();
@@ -143,9 +156,18 @@ fn identifier_lookahead(
             break;
         }
     }
+    let lexeme = identifier.to_string();
     match try_keyword(&identifier) {
-        Some(token) => tokens.push((token, line)),
-        None => tokens.push((Token::Identifier { lexeme: identifier }, line)),
+        Some(token) => tokens.push(TokenInfo {
+            token,
+            line,
+            lexeme,
+        }),
+        None => tokens.push(TokenInfo {
+            token: Token::Identifier { name: identifier },
+            line,
+            lexeme,
+        }),
     }
 }
 
@@ -159,31 +181,29 @@ fn try_keyword(identifier: &str) -> Option<Token> {
 fn number_lookahead(
     char: char,
     chars: &mut Peekable<Chars<'_>>,
-    tokens: &mut Vec<(Token, usize)>,
+    tokens: &mut Vec<TokenInfo>,
     line: usize,
 ) {
-    let mut number_str = char.to_string();
+    let mut lexeme = char.to_string();
     while let Some(digit) = chars.peek() {
         if *digit == '.' || digit.is_numeric() {
-            number_str.push(*digit);
+            lexeme.push(*digit);
             chars.next();
         } else {
             break;
         }
     }
-    let number: f64 = number_str.parse().unwrap();
-    tokens.push((
-        Token::Number {
-            literal: number,
-            lexeme: number_str,
-        },
+    let number: f64 = lexeme.parse().unwrap();
+    tokens.push(TokenInfo {
+        token: Token::Number { literal: number },
         line,
-    ));
+        lexeme,
+    })
 }
 
 fn string_lookahead(
     chars: &mut Peekable<Chars<'_>>,
-    tokens: &mut Vec<(Token, usize)>,
+    tokens: &mut Vec<TokenInfo>,
     mut line: usize,
 ) -> usize {
     let mut string_val = String::new();
@@ -193,12 +213,13 @@ fn string_lookahead(
                 line += 1;
             }
             Some('"') => {
-                tokens.push((
-                    Token::String {
-                        literal: string_val,
+                tokens.push(TokenInfo {
+                    token: Token::String {
+                        literal: string_val.to_string(),
                     },
                     line,
-                ));
+                    lexeme: string_val,
+                });
                 break;
             }
             Some(c) => {
@@ -215,36 +236,44 @@ fn string_lookahead(
 fn symbol_lookahead(
     char: char,
     chars: &mut Peekable<Chars<'_>>,
-    tokens: &mut Vec<(Token, usize)>,
+    tokens: &mut Vec<TokenInfo>,
     mut line: usize,
 ) -> usize {
+    let mut push_token = |t| {
+        tokens.push(TokenInfo {
+            token: t,
+            line,
+            lexeme: char.to_string(),
+        })
+    };
+
     match (char, chars.peek()) {
         ('!', Some('=')) => {
-            tokens.push((Token::BangEqual, line));
+            push_token(Token::BangEqual);
             chars.next();
         }
-        ('!', _) => tokens.push((Token::Bang, line)),
+        ('!', _) => push_token(Token::Bang),
         ('=', Some('=')) => {
-            tokens.push((Token::EqualEqual, line));
+            push_token(Token::EqualEqual);
             chars.next();
         }
-        ('=', _) => tokens.push((Token::Equal, line)),
+        ('=', _) => push_token(Token::Equal),
         ('<', Some('=')) => {
-            tokens.push((Token::LessEqual, line));
+            push_token(Token::LessEqual);
             chars.next();
         }
-        ('<', _) => tokens.push((Token::Less, line)),
+        ('<', _) => push_token(Token::Less),
         ('>', Some('=')) => {
-            tokens.push((Token::GreaterEqual, line));
+            push_token(Token::GreaterEqual);
             chars.next();
         }
-        ('>', _) => tokens.push((Token::Greater, line)),
+        ('>', _) => push_token(Token::Greater),
         ('/', Some('/')) => {
             // consume comment
             chars.find(|x| *x == '\n');
             line += 1;
         }
-        ('/', _) => tokens.push((Token::Slash, line)),
+        ('/', _) => push_token(Token::Slash),
         _ => {}
     }
     line
