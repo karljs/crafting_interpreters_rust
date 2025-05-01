@@ -5,6 +5,8 @@ use std::io::Read;
 use std::io::Write;
 
 mod error;
+mod eval;
+use eval::Eval;
 mod expr;
 mod lexer;
 mod parser;
@@ -54,6 +56,8 @@ fn run(source: String) -> error::Result<()> {
     let mut parser = parser::Parser::new(lexer.tokens());
     let expr = parser.parse();
     println!("{:?}", expr);
+    let res = expr.eval();
+    println!("{:?}", res);
 
     Ok(())
 }
