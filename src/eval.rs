@@ -1,4 +1,4 @@
-use crate::expr::{Expr, Literal};
+use crate::expr::{BinaryOp, Expr, Literal};
 use std::{
     cmp::Ordering,
     ops::{Add, Div, Mul, Sub},
@@ -21,25 +21,23 @@ pub trait Eval {
 impl Eval for Expr {
     fn eval(&self) -> EvalResult {
         match self {
-            Expr::Binary(lhs, binary_op, rhs) => {
-                let rust_op = match binary_op {
-                    crate::expr::BinaryOp::Equal => |lhs, rhs| EvalResult::Bool(lhs == rhs),
-                    crate::expr::BinaryOp::NotEqual => |lhs, rhs| EvalResult::Bool(lhs != rhs),
-                    crate::expr::BinaryOp::LessThan => |lhs, rhs| EvalResult::Bool(lhs < rhs),
-                    crate::expr::BinaryOp::LessEqual => |lhs, rhs| EvalResult::Bool(lhs <= rhs),
-                    crate::expr::BinaryOp::Greater => |lhs, rhs| EvalResult::Bool(lhs > rhs),
-                    crate::expr::BinaryOp::GreaterEqual => |lhs, rhs| EvalResult::Bool(lhs >= rhs),
-                    crate::expr::BinaryOp::Plus => |lhs, rhs| lhs + rhs,
-                    crate::expr::BinaryOp::Minus => |lhs, rhs| lhs - rhs,
-                    crate::expr::BinaryOp::Times => |lhs, rhs| lhs * rhs,
-                    crate::expr::BinaryOp::Div => |lhs, rhs| lhs / rhs,
-                };
-                rust_op(lhs.eval(), rhs.eval())
-            }
+            Expr::Binary(lhs, binary_op, rhs) => match (lhs.eval(), binary_op, rhs.eval()) {
+                (lhs, BinaryOp::Equal, rhs) => EvalResult::Bool(lhs == rhs),
+                (lhs, BinaryOp::NotEqual, rhs) => EvalResult::Bool(lhs != rhs),
+                (lhs, BinaryOp::LessThan, rhs) => EvalResult::Bool(lhs < rhs),
+                (lhs, BinaryOp::LessEqual, rhs) => EvalResult::Bool(lhs <= rhs),
+                (lhs, BinaryOp::Greater, rhs) => EvalResult::Bool(lhs > rhs),
+                (lhs, BinaryOp::GreaterEqual, rhs) => EvalResult::Bool(lhs >= rhs),
+                (lhs, BinaryOp::Plus, rhs) => lhs + rhs,
+                (lhs, BinaryOp::Minus, rhs) => lhs - rhs,
+                (lhs, BinaryOp::Times, rhs) => lhs * rhs,
+                (lhs, BinaryOp::Div, rhs) => lhs / rhs,
+            },
             Expr::Unary(unary_op, expr) => match (unary_op, expr.eval()) {
                 (crate::expr::UnaryOp::Negate, EvalResult::Number(n)) => EvalResult::Number(-n),
                 (crate::expr::UnaryOp::Not, EvalResult::Bool(b)) => EvalResult::Bool(!b),
-                _ => panic!("Type error"),
+                (_, e @ EvalResult::TypeError(_)) => e,
+                (_, e) => EvalResult::TypeError(format!("Can't apply {:?} to {:?}", unary_op, e)),
             },
             Expr::Literal(literal) => literal.eval(),
             Expr::Grouping(expr) => expr.eval(),
