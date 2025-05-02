@@ -27,6 +27,7 @@ impl Parser {
     ) -> Result<Expr> {
         self.current += 1;
         let rhs = f(self)?;
+        println!("binop rhs is {:?}", rhs);
         cc(rhs)
     }
 
@@ -69,53 +70,77 @@ impl Parser {
     }
 
     fn equality(&mut self) -> Result<Expr> {
-        let lhs = self.comparison()?;
+        let mut lhs = self.comparison()?;
 
-        match self.current_token() {
-            Some(Token::EqualEqual) => {
-                self.consume_cont_binop(lhs, BinaryOp::Equal, Parser::comparison)
+        loop {
+            match self.current_token() {
+                Some(Token::EqualEqual) => {
+                    lhs = self.consume_cont_binop(lhs, BinaryOp::Equal, Parser::comparison)?;
+                }
+                Some(Token::BangEqual) => {
+                    lhs = self.consume_cont_binop(lhs, BinaryOp::NotEqual, Parser::comparison)?;
+                }
+                _ => break,
             }
-            Some(Token::BangEqual) => {
-                self.consume_cont_binop(lhs, BinaryOp::NotEqual, Parser::comparison)
-            }
-            _ => return Ok(lhs),
         }
+        return Ok(lhs);
     }
 
     fn comparison(&mut self) -> Result<Expr> {
-        let lhs = self.term()?;
+        let mut lhs = self.term()?;
 
-        match self.current_token() {
-            Some(Token::Less) => self.consume_cont_binop(lhs, BinaryOp::LessThan, Parser::term),
-            Some(Token::LessEqual) => {
-                self.consume_cont_binop(lhs, BinaryOp::LessEqual, Parser::term)
+        loop {
+            match self.current_token() {
+                Some(Token::Less) => {
+                    lhs = self.consume_cont_binop(lhs, BinaryOp::LessThan, Parser::term)?;
+                }
+                Some(Token::LessEqual) => {
+                    lhs = self.consume_cont_binop(lhs, BinaryOp::LessEqual, Parser::term)?;
+                }
+                Some(Token::Greater) => {
+                    lhs = self.consume_cont_binop(lhs, BinaryOp::Greater, Parser::term)?;
+                }
+                Some(Token::GreaterEqual) => {
+                    lhs = self.consume_cont_binop(lhs, BinaryOp::GreaterEqual, Parser::term)?;
+                }
+                _ => break,
             }
-            Some(Token::Greater) => self.consume_cont_binop(lhs, BinaryOp::Greater, Parser::term),
-            Some(Token::GreaterEqual) => {
-                self.consume_cont_binop(lhs, BinaryOp::GreaterEqual, Parser::term)
-            }
-            _ => return Ok(lhs),
         }
+        return Ok(lhs);
     }
 
     fn term(&mut self) -> Result<Expr> {
-        let lhs = self.factor()?;
+        let mut lhs = self.factor()?;
 
-        match self.current_token() {
-            Some(Token::Plus) => self.consume_cont_binop(lhs, BinaryOp::Plus, Parser::factor),
-            Some(Token::Minus) => self.consume_cont_binop(lhs, BinaryOp::Minus, Parser::factor),
-            _ => return Ok(lhs),
+        loop {
+            match self.current_token() {
+                Some(Token::Plus) => {
+                    lhs = self.consume_cont_binop(lhs, BinaryOp::Plus, Parser::factor)?
+                }
+                Some(Token::Minus) => {
+                    lhs = self.consume_cont_binop(lhs, BinaryOp::Minus, Parser::factor)?
+                }
+                _ => break,
+            }
         }
+        return Ok(lhs);
     }
 
     fn factor(&mut self) -> Result<Expr> {
-        let lhs = self.unary()?;
+        let mut lhs = self.unary()?;
 
-        match self.current_token() {
-            Some(Token::Star) => self.consume_cont_binop(lhs, BinaryOp::Times, Parser::unary),
-            Some(Token::Slash) => self.consume_cont_binop(lhs, BinaryOp::Div, Parser::unary),
-            _ => return Ok(lhs),
+        loop {
+            match self.current_token() {
+                Some(Token::Star) => {
+                    lhs = self.consume_cont_binop(lhs, BinaryOp::Times, Parser::unary)?;
+                }
+                Some(Token::Slash) => {
+                    lhs = self.consume_cont_binop(lhs, BinaryOp::Div, Parser::unary)?;
+                }
+                _ => break,
+            }
         }
+        return Ok(lhs);
     }
 
     fn unary(&mut self) -> Result<Expr> {
