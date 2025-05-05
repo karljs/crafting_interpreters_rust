@@ -4,9 +4,11 @@ use std::io;
 use std::io::Read;
 use std::io::Write;
 
+mod lox;
+use lox::Lox;
+mod environment;
 mod error;
 mod eval;
-use eval::Eval;
 mod lexer;
 mod parser;
 mod program;
@@ -46,25 +48,16 @@ fn run_prompt() -> error::Result<()> {
         if buffer.is_empty() {
             break;
         }
-        _ = run(buffer);
+        if let Err(e) = run(buffer) {
+            println!("Error: {:?}", e);
+        }
     }
     Ok(())
 }
 
 fn run(source: String) -> error::Result<()> {
-    let lexer = lexer::Lexer::from_source(source);
-    let mut parser = parser::Parser::from_tokens(lexer.tokens());
-
-    match parser.parse() {
-        Ok(program) => {
-            println!("Parsed program: {:?}", program);
-            let res = program.eval();
-            println!("Eval result: {:?}", res);
-            Ok(())
-        }
-        Err(e) => {
-            println!("Parse error: {:?}", e);
-            Err(e)
-        }
+    match Lox::new_from_input(source) {
+        Ok(mut lox) => lox.eval(),
+        Err(e) => Err(e),
     }
 }

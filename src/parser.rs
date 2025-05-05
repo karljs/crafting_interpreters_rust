@@ -1,17 +1,6 @@
-//! The grammar that we're parsing looks like this:
-//! expression     → equality ;
-//! equality       → comparison ( ( "!=" | "==" ) comparison )* ;
-//! comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
-//! term           → factor ( ( "-" | "+" ) factor )* ;
-//! factor         → unary ( ( "/" | "*" ) unary )* ;
-//! unary          → ( "!" | "-" ) unary
-//!                | primary ;
-//! primary        → NUMBER | STRING | "true" | "false" | "nil"
-//!                | "(" expression ")" ;
-
 use crate::error::{Result, eof_parse_error, parse_error};
 use crate::lexer::{Token, TokenType};
-use crate::program::{BinaryOp, Expr, Literal, Program, Statement, UnaryOp, binop};
+use crate::program::{BinaryOp, Declaration, Expr, Literal, Program, Statement, UnaryOp, binop};
 
 pub struct Parser {
     pub tokens: Vec<Token>,
@@ -22,23 +11,27 @@ impl Parser {
     /// Given an iterator of tokens, construct a parser for those
     /// tokens.
     pub fn from_tokens(tokens: impl IntoIterator<Item = Token>) -> Self {
-        Parser {
+        let p = Parser {
             tokens: tokens.into_iter().collect(),
             current: 0,
+        };
+        for token in &p.tokens {
+            println!("{:?}", token);
         }
+        p
     }
 
     /// The main entry point to try to parse the provided sequence of
     /// tokens.  Either succeeds and gives you a program, or else
     /// returns a parse error.
     pub fn parse(&mut self) -> Result<Program> {
-        let mut statements = Vec::new();
+        let mut decls = Vec::new();
         loop {
             if let Some(TokenType::Eof) = self.peek_token_type() {
-                return Ok(statements);
+                return Ok(decls);
             } else {
-                let stmt = self.statement()?;
-                statements.push(stmt);
+                let stmt = self.declaration()?;
+                decls.push(stmt);
             }
         }
     }
@@ -81,6 +74,42 @@ impl Parser {
                 self.current_token().ok()
             }
             _ => None,
+        }
+    }
+
+    fn declaration(&mut self) -> Result<Declaration> {
+        match self.peek_token_type() {
+            Some(TokenType::Var) => self.var_declaration(),
+            _ => Ok(Declaration::Statement(self.statement()?)),
+        }
+    }
+
+    fn var_declaration(&mut self) -> Result<Declaration> {
+        self.consume_type(TokenType::Var);
+        let ident = self.current_token().unwrap().lexeme.clone();
+
+        // TODO: Because the data is owned by the enum variant, it's
+        // awkard to match it by type.
+        self.consume();
+
+        match self.peek_token_type() {
+            Some(TokenType::Equal) => {
+                self.consume();
+                let rhs = self.expr()?;
+                self.consume_type(TokenType::SemiColon);
+                Ok(Declaration::Variable {
+                    identifier: ident,
+                    value: Some(rhs),
+                })
+            }
+            Some(TokenType::SemiColon) => {
+                self.consume();
+                Ok(Declaration::Variable {
+                    identifier: ident,
+                    value: None,
+                })
+            }
+            _ => Err(parse_error::<Declaration>("Malformed variable declaration")),
         }
     }
 
@@ -252,6 +281,11 @@ impl Parser {
                     Some(_) => Ok(Expr::Grouping(Box::new(expr))),
                     _ => Err(parse_error::<Expr>("Failed to find expected closing paren")),
                 }
+            }
+            TokenType::Identifier { name } => {
+                let id = name.clone();
+                self.consume();
+                Ok(Expr::Literal(Literal::Identifier(id)))
             }
             _ => Err(parse_error::<Expr>(&format!(
                 "Line {:?}: Unable to parse expression {:?} as token of type {:?}",

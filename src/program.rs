@@ -1,6 +1,17 @@
+//! Encodes the AST of the language
+
 use std::fmt;
 
-pub type Program = Vec<Statement>;
+pub type Program = Vec<Declaration>;
+
+#[derive(Debug)]
+pub enum Declaration {
+    Variable {
+        identifier: String,
+        value: Option<Expr>,
+    },
+    Statement(Statement),
+}
 
 #[derive(Debug)]
 pub enum Statement {
@@ -8,6 +19,7 @@ pub enum Statement {
     Print(Expr),
 }
 
+#[derive(Clone)]
 pub enum Expr {
     Binary(Box<Expr>, BinaryOp, Box<Expr>),
     Unary(UnaryOp, Box<Expr>),
@@ -15,6 +27,7 @@ pub enum Expr {
     Grouping(Box<Expr>),
 }
 
+#[derive(Clone)]
 pub enum BinaryOp {
     Equal,
     NotEqual,
@@ -28,17 +41,20 @@ pub enum BinaryOp {
     Div,
 }
 
+#[derive(Clone)]
 pub enum UnaryOp {
     Negate,
     Not,
 }
 
+#[derive(Clone)]
 pub enum Literal {
     Number(f64),
     String(String),
     True,
     False,
     Nil,
+    Identifier(String),
 }
 
 impl fmt::Debug for Expr {
@@ -62,6 +78,7 @@ impl fmt::Debug for Literal {
             Literal::True => write!(f, "true"),
             Literal::False => write!(f, "false"),
             Literal::Nil => write!(f, "nil"),
+            Literal::Identifier(id) => write!(f, "{}", id),
         }
     }
 }

@@ -1,0 +1,5 @@
+var myVariable = 5 + 2 ;
+print myVariable ;
+
+var myVariable = "something different" ;
+print myVariable ;

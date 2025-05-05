@@ -1,41 +1,65 @@
-use crate::program::{BinaryOp, Expr, Literal, Program, Statement, UnaryOp};
+use crate::{
+    environment::{self, Environment},
+    error::runtime_error,
+    program::{BinaryOp, Declaration, Expr, Literal, Program, Statement, UnaryOp},
+};
 use std::{
     cmp::Ordering,
     ops::{Add, Div, Mul, Sub},
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ExprEval {
     Number(f64),
     String(String),
     Bool(bool),
     Nil,
+    RuntimeError(String),
     TypeError(String),
 }
 
 pub trait Eval {
-    fn eval(&self) -> ExprEval;
+    fn eval(&self, environment: &mut Environment) -> ExprEval;
 }
 
 impl Eval for Program {
-    fn eval(&self) -> ExprEval {
-        for stmt in self.into_iter() {
-            stmt.eval();
+    fn eval(&self, environment: &mut Environment) -> ExprEval {
+        for decl in self.into_iter() {
+            decl.eval(environment);
         }
         ExprEval::Nil
     }
 }
 
+impl Eval for Declaration {
+    fn eval(&self, environment: &mut Environment) -> ExprEval {
+        match self {
+            Declaration::Variable { identifier, value } => {
+                if let Some(expr) = value {
+                    let rhs = expr.eval(environment);
+                    environment.define(identifier.clone(), Some(rhs));
+                } else {
+                    environment.define(identifier.clone(), None);
+                }
+                println!("Declared variable {:?}", identifier);
+                environment.debug_dump();
+                ExprEval::Nil
+            }
+            Declaration::Statement(statement) => statement.eval(environment),
+        }
+    }
+}
+
 impl Eval for Statement {
-    fn eval(&self) -> ExprEval {
+    fn eval(&self, environment: &mut Environment) -> ExprEval {
         match self {
             Statement::Expr(expr) => {
-                let res = expr.eval();
+                let res = expr.eval(environment);
                 println!("Evaluated to {:?}", res);
                 res
             }
             Statement::Print(expr) => {
-                let res = expr.eval();
+                let res = expr.eval(environment);
                 println!("Print called on: {:?}", res);
                 res
             }
@@ -45,40 +69,56 @@ impl Eval for Statement {
 
 // The book allows things like truthiness for other types, but I can't abide that
 impl Eval for Expr {
-    fn eval(&self) -> ExprEval {
+    fn eval(&self, environment: &mut Environment) -> ExprEval {
         match self {
-            Expr::Binary(lhs, binary_op, rhs) => match (lhs.eval(), binary_op, rhs.eval()) {
-                (lhs, BinaryOp::Equal, rhs) => ExprEval::Bool(lhs == rhs),
-                (lhs, BinaryOp::NotEqual, rhs) => ExprEval::Bool(lhs != rhs),
-                (lhs, BinaryOp::Less, rhs) => ExprEval::Bool(lhs < rhs),
-                (lhs, BinaryOp::LessEqual, rhs) => ExprEval::Bool(lhs <= rhs),
-                (lhs, BinaryOp::Greater, rhs) => ExprEval::Bool(lhs > rhs),
-                (lhs, BinaryOp::GreaterEqual, rhs) => ExprEval::Bool(lhs >= rhs),
-                (lhs, BinaryOp::Plus, rhs) => lhs + rhs,
-                (lhs, BinaryOp::Minus, rhs) => lhs - rhs,
-                (lhs, BinaryOp::Times, rhs) => lhs * rhs,
-                (lhs, BinaryOp::Div, rhs) => lhs / rhs,
-            },
-            Expr::Unary(unary_op, expr) => match (unary_op, expr.eval()) {
+            Expr::Binary(lhs, binary_op, rhs) => {
+                match (lhs.eval(environment), binary_op, rhs.eval(environment)) {
+                    (lhs, BinaryOp::Equal, rhs) => ExprEval::Bool(lhs == rhs),
+                    (lhs, BinaryOp::NotEqual, rhs) => ExprEval::Bool(lhs != rhs),
+                    (lhs, BinaryOp::Less, rhs) => ExprEval::Bool(lhs < rhs),
+                    (lhs, BinaryOp::LessEqual, rhs) => ExprEval::Bool(lhs <= rhs),
+                    (lhs, BinaryOp::Greater, rhs) => ExprEval::Bool(lhs > rhs),
+                    (lhs, BinaryOp::GreaterEqual, rhs) => ExprEval::Bool(lhs >= rhs),
+                    (lhs, BinaryOp::Plus, rhs) => lhs + rhs,
+                    (lhs, BinaryOp::Minus, rhs) => lhs - rhs,
+                    (lhs, BinaryOp::Times, rhs) => lhs * rhs,
+                    (lhs, BinaryOp::Div, rhs) => lhs / rhs,
+                }
+            }
+            Expr::Unary(unary_op, expr) => match (unary_op, expr.eval(environment)) {
                 (UnaryOp::Negate, ExprEval::Number(n)) => ExprEval::Number(-n),
                 (UnaryOp::Not, ExprEval::Bool(b)) => ExprEval::Bool(!b),
                 (_, e @ ExprEval::TypeError(_)) => e,
                 (_, e) => ExprEval::TypeError(format!("Can't apply {:?} to {:?}", unary_op, e)),
             },
-            Expr::Literal(literal) => literal.eval(),
-            Expr::Grouping(expr) => expr.eval(),
+            Expr::Literal(literal) => literal.eval(environment),
+            Expr::Grouping(expr) => expr.eval(environment),
         }
     }
 }
 
 impl Eval for Literal {
-    fn eval(&self) -> ExprEval {
+    fn eval(&self, environment: &mut Environment) -> ExprEval {
         match self {
             Literal::Number(num) => ExprEval::Number(*num),
             Literal::String(str) => ExprEval::String(str.clone()),
             Literal::True => ExprEval::Bool(true),
-            Literal::False => ExprEval::Bool(true),
+            Literal::False => ExprEval::Bool(false),
             Literal::Nil => ExprEval::Nil,
+            Literal::Identifier(id) => {
+                println!("variable access {:?}", id);
+                environment.debug_dump();
+
+                match environment.get(id) {
+                    Ok(Some(res)) => res.clone(),
+                    Ok(None) => ExprEval::RuntimeError(format!(
+                        "Variable {:?} accessed before definition",
+                        id
+                    )),
+
+                    Err(_) => ExprEval::RuntimeError(format!("Unknown variable {:?}", id)),
+                }
+            }
         }
     }
 }
