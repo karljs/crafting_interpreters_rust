@@ -1,187 +1,262 @@
-use crate::error::{Error, Result, report_error};
-use crate::expr::{BinaryOp, Expr, Literal, UnaryOp, binop};
-use crate::lexer::{Token, TokenInfo};
+//! The grammar that we're parsing looks like this:
+//! expression     → equality ;
+//! equality       → comparison ( ( "!=" | "==" ) comparison )* ;
+//! comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+//! term           → factor ( ( "-" | "+" ) factor )* ;
+//! factor         → unary ( ( "/" | "*" ) unary )* ;
+//! unary          → ( "!" | "-" ) unary
+//!                | primary ;
+//! primary        → NUMBER | STRING | "true" | "false" | "nil"
+//!                | "(" expression ")" ;
+
+use crate::error::{Result, eof_parse_error, parse_error};
+use crate::lexer::{Token, TokenType};
+use crate::program::{BinaryOp, Expr, Literal, Program, Statement, UnaryOp, binop};
 
 pub struct Parser {
-    pub tokens: Vec<TokenInfo>,
-    pub current: usize,
+    pub tokens: Vec<Token>,
+    current: usize,
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<TokenInfo>) -> Self {
-        Parser { tokens, current: 0 }
+    /// Given an iterator of tokens, construct a parser for those
+    /// tokens.
+    pub fn from_tokens(tokens: impl IntoIterator<Item = Token>) -> Self {
+        Parser {
+            tokens: tokens.into_iter().collect(),
+            current: 0,
+        }
     }
 
-    pub fn parse(&mut self) -> Expr {
-        self.expr()
-    }
-
-    fn current_token(&mut self) -> Option<&Token> {
-        self.tokens.get(self.current).map(|t| &t.token)
-    }
-
-    fn consume_cont(
-        &mut self,
-        f: fn(&mut Self) -> Result<Expr>,
-        cc: impl FnOnce(Expr) -> Result<Expr>,
-    ) -> Result<Expr> {
-        self.current += 1;
-        let rhs = f(self)?;
-        println!("binop rhs is {:?}", rhs);
-        cc(rhs)
-    }
-
-    fn consume_cont_binop(
-        &mut self,
-        lhs: Expr,
-        op: BinaryOp,
-        f_rhs: fn(&mut Self) -> Result<Expr>,
-    ) -> Result<Expr> {
-        self.consume_cont(f_rhs, |rhs| Ok(binop(lhs, op, rhs)))
-    }
-
-    fn consume_cont_unop(
-        &mut self,
-        op: UnaryOp,
-        f_rhs: fn(&mut Self) -> Result<Expr>,
-    ) -> Result<Expr> {
-        self.consume_cont(f_rhs, |rhs| Ok(Expr::Unary(op, Box::new(rhs))))
-    }
-
-    fn consume_literal(&mut self, lit: Literal) -> Result<Expr> {
-        self.current += 1;
-        Ok(Expr::Literal(lit))
-    }
-
-    fn synchronize(&mut self) {
-        // This isn't much better than doing nothing, just here to
-        // make sure the `Result` handling works as expected.
-        self.current += 1;
-    }
-
-    fn expr(&mut self) -> Expr {
-        match self.equality() {
-            Ok(e) => e,
-            Err(_) => {
-                self.synchronize();
-                self.expr()
+    /// The main entry point to try to parse the provided sequence of
+    /// tokens.  Either succeeds and gives you a program, or else
+    /// returns a parse error.
+    pub fn parse(&mut self) -> Result<Program> {
+        let mut statements = Vec::new();
+        loop {
+            if let Some(TokenType::Eof) = self.peek_token_type() {
+                return Ok(statements);
+            } else {
+                let stmt = self.statement()?;
+                statements.push(stmt);
             }
         }
+    }
+
+    /// Peek at just the type of the current token, useful for simpler
+    /// pattern matching.
+    fn peek_token_type(&self) -> Option<&TokenType> {
+        self.tokens.get(self.current).map(|t| &t.token_type)
+    }
+
+    /// Peek at the token after the current one, which makes it easier
+    /// to distinguish between, e.g., = and ==
+    fn peek_next_token_type(&self) -> Option<&TokenType> {
+        self.tokens.get(self.current + 1).map(|t| &t.token_type)
+    }
+
+    /// Get at the current token, including all metadata
+    fn current_token(&mut self) -> Result<&Token> {
+        self.tokens
+            .get(self.current)
+            .ok_or(eof_parse_error::<&Token>())
+    }
+
+    /// Move forward in the sequence of tokens
+    fn consume(&mut self) {
+        self.current += 1;
+    }
+
+    /// Move backward in the sequence of tokens
+    fn unconsume(&mut self) {
+        self.current -= 1;
+    }
+
+    /// Try to consume a token of a particular type.  For instance,
+    /// make sure we find a semicolon after parsing a statement
+    fn consume_type(&mut self, ttype: TokenType) -> Option<&Token> {
+        match self.peek_token_type() {
+            Some(t) if *t == ttype => {
+                self.consume();
+                self.current_token().ok()
+            }
+            _ => None,
+        }
+    }
+
+    fn statement(&mut self) -> Result<Statement> {
+        match self.peek_token_type() {
+            Some(TokenType::Print) => {
+                self.consume();
+                let rhs = self.expr()?;
+                self.consume_type(TokenType::SemiColon);
+                Ok(Statement::Print(rhs))
+            }
+            Some(TokenType::Eof) | None => Err(eof_parse_error::<Statement>()),
+            Some(_) => {
+                let rhs = self.expr()?;
+                match self.consume_type(TokenType::SemiColon) {
+                    Some(_) => Ok(Statement::Expr(rhs)),
+                    _ => Err(parse_error::<Statement>("Missing semicolon")),
+                }
+            }
+        }
+    }
+
+    fn expr(&mut self) -> Result<Expr> {
+        self.equality()
     }
 
     fn equality(&mut self) -> Result<Expr> {
-        let mut lhs = self.comparison()?;
-
+        let lhs = self.comparison()?;
         loop {
-            match self.current_token() {
-                Some(Token::EqualEqual) => {
-                    lhs = self.consume_cont_binop(lhs, BinaryOp::Equal, Parser::comparison)?;
-                }
-                Some(Token::BangEqual) => {
-                    lhs = self.consume_cont_binop(lhs, BinaryOp::NotEqual, Parser::comparison)?;
-                }
-                _ => break,
+            if let Some(op) = self.to_equality_op() {
+                self.consume();
+                let rhs = self.comparison()?;
+                return Ok(binop(lhs, op, rhs));
+            } else {
+                break;
             }
         }
-        return Ok(lhs);
+        Ok(lhs)
+    }
+
+    fn to_equality_op(&mut self) -> Option<BinaryOp> {
+        let token = self.current_token().ok()?;
+        match &token.token_type {
+            TokenType::EqualEqual => Some(BinaryOp::Equal),
+            TokenType::BangEqual => Some(BinaryOp::NotEqual),
+            _ => None,
+        }
     }
 
     fn comparison(&mut self) -> Result<Expr> {
-        let mut lhs = self.term()?;
-
+        let lhs = self.term()?;
         loop {
-            match self.current_token() {
-                Some(Token::Less) => {
-                    lhs = self.consume_cont_binop(lhs, BinaryOp::LessThan, Parser::term)?;
-                }
-                Some(Token::LessEqual) => {
-                    lhs = self.consume_cont_binop(lhs, BinaryOp::LessEqual, Parser::term)?;
-                }
-                Some(Token::Greater) => {
-                    lhs = self.consume_cont_binop(lhs, BinaryOp::Greater, Parser::term)?;
-                }
-                Some(Token::GreaterEqual) => {
-                    lhs = self.consume_cont_binop(lhs, BinaryOp::GreaterEqual, Parser::term)?;
-                }
-                _ => break,
+            if let Some(op) = self.to_comparison_op() {
+                self.consume();
+                let rhs = self.term()?;
+                return Ok(binop(lhs, op, rhs));
+            } else {
+                break;
             }
         }
-        return Ok(lhs);
+        Ok(lhs)
+    }
+
+    fn to_comparison_op(&mut self) -> Option<BinaryOp> {
+        let token = self.current_token().ok()?;
+        match &token.token_type {
+            TokenType::Less => Some(BinaryOp::Less),
+            TokenType::LessEqual => Some(BinaryOp::LessEqual),
+            TokenType::Greater => Some(BinaryOp::Greater),
+            TokenType::GreaterEqual => Some(BinaryOp::GreaterEqual),
+            _ => None,
+        }
     }
 
     fn term(&mut self) -> Result<Expr> {
-        let mut lhs = self.factor()?;
-
+        let lhs = self.factor()?;
         loop {
-            match self.current_token() {
-                Some(Token::Plus) => {
-                    lhs = self.consume_cont_binop(lhs, BinaryOp::Plus, Parser::factor)?
-                }
-                Some(Token::Minus) => {
-                    lhs = self.consume_cont_binop(lhs, BinaryOp::Minus, Parser::factor)?
-                }
-                _ => break,
+            if let Some(op) = self.to_term_op() {
+                self.consume();
+                let rhs = self.factor()?;
+                return Ok(binop(lhs, op, rhs));
+            } else {
+                break;
             }
         }
-        return Ok(lhs);
+        Ok(lhs)
+    }
+
+    fn to_term_op(&mut self) -> Option<BinaryOp> {
+        let token = self.current_token().ok()?;
+        match &token.token_type {
+            TokenType::Minus => Some(BinaryOp::Minus),
+            TokenType::Plus => Some(BinaryOp::Plus),
+            _ => None,
+        }
     }
 
     fn factor(&mut self) -> Result<Expr> {
-        let mut lhs = self.unary()?;
-
+        let lhs = self.unary()?;
         loop {
-            match self.current_token() {
-                Some(Token::Star) => {
-                    lhs = self.consume_cont_binop(lhs, BinaryOp::Times, Parser::unary)?;
-                }
-                Some(Token::Slash) => {
-                    lhs = self.consume_cont_binop(lhs, BinaryOp::Div, Parser::unary)?;
-                }
-                _ => break,
+            if let Some(op) = self.to_factor_op() {
+                self.consume();
+                let rhs = self.unary()?;
+                return Ok(binop(lhs, op, rhs));
+            } else {
+                break;
             }
         }
-        return Ok(lhs);
+        Ok(lhs)
+    }
+
+    fn to_factor_op(&mut self) -> Option<BinaryOp> {
+        let token = self.current_token().ok()?;
+        match &token.token_type {
+            TokenType::Slash => Some(BinaryOp::Div),
+            TokenType::Star => Some(BinaryOp::Times),
+            _ => None,
+        }
     }
 
     fn unary(&mut self) -> Result<Expr> {
-        match self.current_token() {
-            Some(Token::Bang) => self.consume_cont_unop(UnaryOp::Not, Parser::primary),
-            Some(Token::Minus) => self.consume_cont_unop(UnaryOp::Negate, Parser::primary),
-            _ => self.primary(),
+        if let Some(op) = self.to_unary_op() {
+            self.consume();
+            let rhs = self.unary()?;
+            Ok(Expr::Unary(op, Box::new(rhs)))
+        } else {
+            self.primary()
+        }
+    }
+
+    fn to_unary_op(&mut self) -> Option<UnaryOp> {
+        let token = self.current_token().ok()?;
+        match &token.token_type {
+            TokenType::Bang => Some(UnaryOp::Not),
+            TokenType::Minus => Some(UnaryOp::Negate),
+            _ => None,
         }
     }
 
     fn primary(&mut self) -> Result<Expr> {
-        match self.current_token() {
-            Some(Token::False) => self.consume_literal(Literal::False),
-            Some(Token::True) => self.consume_literal(Literal::True),
-            Some(Token::Nil) => self.consume_literal(Literal::Nil),
-            Some(Token::Number { literal }) => {
-                let num = *literal;
-                self.consume_literal(Literal::Number(num))
+        let token = self.current_token().unwrap();
+        match &token.token_type {
+            TokenType::False => {
+                self.consume();
+                Ok(Expr::Literal(Literal::False))
             }
-            Some(Token::String { literal }) => {
-                let text = literal.to_string();
-                self.consume_literal(Literal::String(text))
+            TokenType::True => {
+                self.consume();
+                Ok(Expr::Literal(Literal::True))
             }
-
-            Some(Token::LeftParen) => {
-                self.current += 1;
-                let expr = self.expr();
-                self.current += 1;
-                Ok(Expr::Grouping(Box::new(expr)))
+            TokenType::Nil => {
+                self.consume();
+                Ok(Expr::Literal(Literal::Nil))
             }
-            _ => self.parse_error(),
+            TokenType::Number { literal } => {
+                let expr = Expr::Literal(Literal::Number(*literal));
+                self.consume();
+                Ok(expr)
+            }
+            TokenType::String { literal } => {
+                let expr = Expr::Literal(Literal::String(literal.to_string()));
+                self.consume();
+                Ok(expr)
+            }
+            TokenType::LeftParen => {
+                self.consume();
+                let expr = self.expr()?;
+                match self.consume_type(TokenType::RightParen) {
+                    Some(_) => Ok(Expr::Grouping(Box::new(expr))),
+                    _ => Err(parse_error::<Expr>("Failed to find expected closing paren")),
+                }
+            }
+            _ => Err(parse_error::<Expr>(&format!(
+                "Line {:?}: Unable to parse expression {:?} as token of type {:?}",
+                token.line, token.lexeme, token.token_type,
+            ))),
         }
-    }
-
-    fn parse_error(&self) -> Result<Expr> {
-        let token_info = self.tokens.get(self.current).unwrap();
-        report_error(
-            token_info.line,
-            token_info.lexeme.clone(),
-            "Parse error".to_string(),
-        );
-        return Err(Box::new(Error::ParseError));
     }
 }

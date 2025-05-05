@@ -5,8 +5,8 @@ use std::{char, iter::Peekable, str::Chars};
 
 use crate::scanner::Scanner;
 
-#[derive(Clone, Debug)]
-pub enum Token {
+#[derive(Clone, Debug, PartialEq)]
+pub enum TokenType {
     LeftParen,
     RightParen,
     LeftBrace,
@@ -53,30 +53,31 @@ pub enum Token {
 }
 
 lazy_static! {
-    static ref KEYWORDS: HashMap<&'static str, Token> = {
+    static ref KEYWORDS: HashMap<&'static str, TokenType> = {
         HashMap::from([
-            ("and", Token::And),
-            ("class", Token::Class),
-            ("else", Token::Else),
-            ("false", Token::False),
-            ("fun", Token::Fun),
-            ("for", Token::For),
-            ("if", Token::If),
-            ("nil", Token::Nil),
-            ("or", Token::Or),
-            ("print", Token::Print),
-            ("return", Token::Return),
-            ("super", Token::Super),
-            ("this", Token::This),
-            ("true", Token::True),
-            ("var", Token::Var),
-            ("while", Token::While),
+            ("and", TokenType::And),
+            ("class", TokenType::Class),
+            ("else", TokenType::Else),
+            ("false", TokenType::False),
+            ("fun", TokenType::Fun),
+            ("for", TokenType::For),
+            ("if", TokenType::If),
+            ("nil", TokenType::Nil),
+            ("or", TokenType::Or),
+            ("print", TokenType::Print),
+            ("return", TokenType::Return),
+            ("super", TokenType::Super),
+            ("this", TokenType::This),
+            ("true", TokenType::True),
+            ("var", TokenType::Var),
+            ("while", TokenType::While),
         ])
     };
 }
 
-pub struct TokenInfo {
-    pub token: Token,
+#[derive(Debug)]
+pub struct Token {
+    pub token_type: TokenType,
     pub line: usize,
     pub lexeme: String,
 }
@@ -94,30 +95,30 @@ impl Lexer {
         }
     }
 
-    pub fn tokens(mut self) -> Vec<TokenInfo> {
+    pub fn tokens(mut self) -> Vec<Token> {
         let mut chars = self.scanner.scan().peekable();
         let mut tokens = Vec::new();
         let mut line = 1;
 
         while let Some(char) = chars.next() {
             let mut wrap_token = |t| {
-                tokens.push(TokenInfo {
-                    token: t,
+                tokens.push(Token {
+                    token_type: t,
                     line,
                     lexeme: char.to_string(),
                 })
             };
             match char {
-                '(' => wrap_token(Token::LeftParen),
-                ')' => wrap_token(Token::RightParen),
-                '{' => wrap_token(Token::LeftBrace),
-                '}' => wrap_token(Token::RightBrace),
-                ',' => wrap_token(Token::Comma),
-                '.' => wrap_token(Token::Dot),
-                '-' => wrap_token(Token::Minus),
-                '+' => wrap_token(Token::Plus),
-                ';' => wrap_token(Token::SemiColon),
-                '*' => wrap_token(Token::Star),
+                '(' => wrap_token(TokenType::LeftParen),
+                ')' => wrap_token(TokenType::RightParen),
+                '{' => wrap_token(TokenType::LeftBrace),
+                '}' => wrap_token(TokenType::RightBrace),
+                ',' => wrap_token(TokenType::Comma),
+                '.' => wrap_token(TokenType::Dot),
+                '-' => wrap_token(TokenType::Minus),
+                '+' => wrap_token(TokenType::Plus),
+                ';' => wrap_token(TokenType::SemiColon),
+                '*' => wrap_token(TokenType::Star),
                 '!' | '=' | '<' | '>' | '/' => {
                     line = symbol_lookahead(char, &mut chars, &mut tokens, line);
                 }
@@ -137,8 +138,8 @@ impl Lexer {
                 _ => self.errors.push("error".to_string()),
             };
         }
-        tokens.push(TokenInfo {
-            token: Token::Eof,
+        tokens.push(Token {
+            token_type: TokenType::Eof,
             line,
             lexeme: String::new(),
         });
@@ -149,7 +150,7 @@ impl Lexer {
 fn identifier_lookahead(
     char: char,
     chars: &mut Peekable<Chars<'_>>,
-    tokens: &mut Vec<TokenInfo>,
+    tokens: &mut Vec<Token>,
     line: usize,
 ) {
     let mut identifier = char.to_string();
@@ -163,20 +164,20 @@ fn identifier_lookahead(
     }
     let lexeme = identifier.to_string();
     match try_keyword(&identifier) {
-        Some(token) => tokens.push(TokenInfo {
-            token,
+        Some(token) => tokens.push(Token {
+            token_type: token,
             line,
             lexeme,
         }),
-        None => tokens.push(TokenInfo {
-            token: Token::Identifier { name: identifier },
+        None => tokens.push(Token {
+            token_type: TokenType::Identifier { name: identifier },
             line,
             lexeme,
         }),
     }
 }
 
-fn try_keyword(identifier: &str) -> Option<Token> {
+fn try_keyword(identifier: &str) -> Option<TokenType> {
     match KEYWORDS.get(identifier) {
         Some(token) => Some(token.clone()),
         None => None,
@@ -186,7 +187,7 @@ fn try_keyword(identifier: &str) -> Option<Token> {
 fn number_lookahead(
     char: char,
     chars: &mut Peekable<Chars<'_>>,
-    tokens: &mut Vec<TokenInfo>,
+    tokens: &mut Vec<Token>,
     line: usize,
 ) {
     let mut lexeme = char.to_string();
@@ -199,8 +200,8 @@ fn number_lookahead(
         }
     }
     let number: f64 = lexeme.parse().unwrap();
-    tokens.push(TokenInfo {
-        token: Token::Number { literal: number },
+    tokens.push(Token {
+        token_type: TokenType::Number { literal: number },
         line,
         lexeme,
     })
@@ -208,7 +209,7 @@ fn number_lookahead(
 
 fn string_lookahead(
     chars: &mut Peekable<Chars<'_>>,
-    tokens: &mut Vec<TokenInfo>,
+    tokens: &mut Vec<Token>,
     mut line: usize,
 ) -> usize {
     let mut string_val = String::new();
@@ -218,8 +219,8 @@ fn string_lookahead(
                 line += 1;
             }
             Some('"') => {
-                tokens.push(TokenInfo {
-                    token: Token::String {
+                tokens.push(Token {
+                    token_type: TokenType::String {
                         literal: string_val.to_string(),
                     },
                     line,
@@ -241,12 +242,12 @@ fn string_lookahead(
 fn symbol_lookahead(
     char: char,
     chars: &mut Peekable<Chars<'_>>,
-    tokens: &mut Vec<TokenInfo>,
+    tokens: &mut Vec<Token>,
     mut line: usize,
 ) -> usize {
     let mut push_token = |t| {
-        tokens.push(TokenInfo {
-            token: t,
+        tokens.push(Token {
+            token_type: t,
             line,
             lexeme: char.to_string(),
         })
@@ -254,31 +255,31 @@ fn symbol_lookahead(
 
     match (char, chars.peek()) {
         ('!', Some('=')) => {
-            push_token(Token::BangEqual);
+            push_token(TokenType::BangEqual);
             chars.next();
         }
-        ('!', _) => push_token(Token::Bang),
+        ('!', _) => push_token(TokenType::Bang),
         ('=', Some('=')) => {
-            push_token(Token::EqualEqual);
+            push_token(TokenType::EqualEqual);
             chars.next();
         }
-        ('=', _) => push_token(Token::Equal),
+        ('=', _) => push_token(TokenType::Equal),
         ('<', Some('=')) => {
-            push_token(Token::LessEqual);
+            push_token(TokenType::LessEqual);
             chars.next();
         }
-        ('<', _) => push_token(Token::Less),
+        ('<', _) => push_token(TokenType::Less),
         ('>', Some('=')) => {
-            push_token(Token::GreaterEqual);
+            push_token(TokenType::GreaterEqual);
             chars.next();
         }
-        ('>', _) => push_token(Token::Greater),
+        ('>', _) => push_token(TokenType::Greater),
         ('/', Some('/')) => {
             // consume comment
             chars.find(|x| *x == '\n');
             line += 1;
         }
-        ('/', _) => push_token(Token::Slash),
+        ('/', _) => push_token(TokenType::Slash),
         _ => {}
     }
     line

@@ -7,9 +7,9 @@ use std::io::Write;
 mod error;
 mod eval;
 use eval::Eval;
-mod expr;
 mod lexer;
 mod parser;
+mod program;
 mod scanner;
 
 fn main() -> error::Result<()> {
@@ -53,11 +53,18 @@ fn run_prompt() -> error::Result<()> {
 
 fn run(source: String) -> error::Result<()> {
     let lexer = lexer::Lexer::from_source(source);
-    let mut parser = parser::Parser::new(lexer.tokens());
-    let expr = parser.parse();
-    println!("{:?}", expr);
-    let res = expr.eval();
-    println!("{:?}", res);
+    let mut parser = parser::Parser::from_tokens(lexer.tokens());
 
-    Ok(())
+    match parser.parse() {
+        Ok(program) => {
+            println!("Parsed program: {:?}", program);
+            let res = program.eval();
+            println!("Eval result: {:?}", res);
+            Ok(())
+        }
+        Err(e) => {
+            println!("Parse error: {:?}", e);
+            Err(e)
+        }
+    }
 }

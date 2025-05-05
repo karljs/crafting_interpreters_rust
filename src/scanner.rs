@@ -4,7 +4,6 @@ pub struct Scanner {
 
 impl Scanner {
     pub fn from_source(source: String) -> Self {
-        println!("source is {:?}", source);
         Scanner { source }
     }
 

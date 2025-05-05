@@ -1,5 +1,13 @@
 use std::fmt;
 
+pub type Program = Vec<Statement>;
+
+#[derive(Debug)]
+pub enum Statement {
+    Expr(Expr),
+    Print(Expr),
+}
+
 pub enum Expr {
     Binary(Box<Expr>, BinaryOp, Box<Expr>),
     Unary(UnaryOp, Box<Expr>),
@@ -10,7 +18,7 @@ pub enum Expr {
 pub enum BinaryOp {
     Equal,
     NotEqual,
-    LessThan,
+    Less,
     LessEqual,
     Greater,
     GreaterEqual,
@@ -72,7 +80,7 @@ impl fmt::Debug for BinaryOp {
         match self {
             BinaryOp::Equal => write!(f, "=="),
             BinaryOp::NotEqual => write!(f, "!="),
-            BinaryOp::LessThan => write!(f, "<"),
+            BinaryOp::Less => write!(f, "<"),
             BinaryOp::LessEqual => write!(f, "<="),
             BinaryOp::Greater => write!(f, ">"),
             BinaryOp::GreaterEqual => write!(f, ">="),
