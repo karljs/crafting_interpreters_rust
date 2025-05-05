@@ -17,3 +17,6 @@ directory and see some debugging output showing what's happening.
 ```
 cargo run -- examples/basic.lox
 ```
+
+You can also run in interpreter mode without a file with just `cargo
+run`.
