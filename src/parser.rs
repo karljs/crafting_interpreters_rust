@@ -60,11 +60,6 @@ impl Parser {
         self.current += 1;
     }
 
-    /// Move backward in the sequence of tokens
-    fn unconsume(&mut self) {
-        self.current -= 1;
-    }
-
     /// Try to consume a token of a particular type.  For instance,
     /// make sure we find a semicolon after parsing a statement
     fn consume_type(&mut self, ttype: TokenType) -> Option<&Token> {
@@ -133,7 +128,30 @@ impl Parser {
     }
 
     fn expr(&mut self) -> Result<Expr> {
-        self.equality()
+        self.assignment()
+    }
+
+    fn assignment(&mut self) -> Result<Expr> {
+        let lhs = self.equality()?;
+
+        if let Some(TokenType::Equal) = self.peek_token_type() {
+            self.consume_type(TokenType::Equal);
+            let rhs = self.assignment()?;
+
+            if let Expr::Literal(Literal::Identifier(name)) = lhs {
+                return Ok(Expr::Assignment(
+                    // Creating a fake token here to deal with lvalues
+                    // is ugly, but in sticking with the book
+                    Token {
+                        token_type: TokenType::Identifier { name: name.clone() },
+                        line: self.current_token()?.line,
+                        lexeme: name,
+                    },
+                    Box::new(rhs),
+                ));
+            }
+        }
+        return Ok(lhs);
     }
 
     fn equality(&mut self) -> Result<Expr> {

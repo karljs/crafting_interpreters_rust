@@ -75,7 +75,7 @@ lazy_static! {
     };
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Token {
     pub token_type: TokenType,
     pub line: usize,

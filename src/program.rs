@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use crate::lexer::Token;
+
 pub type Program = Vec<Declaration>;
 
 #[derive(Debug)]
@@ -23,6 +25,7 @@ pub enum Statement {
 pub enum Expr {
     Binary(Box<Expr>, BinaryOp, Box<Expr>),
     Unary(UnaryOp, Box<Expr>),
+    Assignment(Token, Box<Expr>),
     Literal(Literal),
     Grouping(Box<Expr>),
 }
@@ -60,6 +63,7 @@ pub enum Literal {
 impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Expr::Assignment(lhs, rhs) => write!(f, "{:?} = {:?}", lhs, rhs),
             Expr::Literal(literal) => write!(f, "{:?}", literal),
             Expr::Unary(unary_op, expr) => write!(f, "({:?} {:?})", unary_op, expr),
             Expr::Binary(lhs, binary_op, rhs) => {

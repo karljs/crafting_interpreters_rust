@@ -1,0 +1,3 @@
+var myVar = 5;
+myVar = 2;
+print myVar;

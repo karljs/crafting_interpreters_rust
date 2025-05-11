@@ -1,6 +1,7 @@
 use crate::{
     environment::{self, Environment},
     error::runtime_error,
+    lexer::TokenType,
     program::{BinaryOp, Declaration, Expr, Literal, Program, Statement, UnaryOp},
 };
 use std::{
@@ -71,6 +72,17 @@ impl Eval for Statement {
 impl Eval for Expr {
     fn eval(&self, environment: &mut Environment) -> ExprEval {
         match self {
+            Expr::Assignment(lhs, rhs) => match (&lhs.token_type, rhs.eval(environment)) {
+                (TokenType::Identifier { name }, rhs) => {
+                    if environment.get(name).is_ok() {
+                        environment.define(name.clone(), Some(rhs.clone()));
+                        rhs
+                    } else {
+                        ExprEval::RuntimeError(format!("Assigned to unknown variable {:?}", name))
+                    }
+                }
+                _ => ExprEval::RuntimeError("Illegal assignment".to_string()),
+            },
             Expr::Binary(lhs, binary_op, rhs) => {
                 match (lhs.eval(environment), binary_op, rhs.eval(environment)) {
                     (lhs, BinaryOp::Equal, rhs) => ExprEval::Bool(lhs == rhs),
