@@ -19,6 +19,7 @@ pub enum Declaration {
 pub enum Statement {
     Expr(Expr),
     Print(Expr),
+    Block(Vec<Declaration>),
 }
 
 #[derive(Clone)]

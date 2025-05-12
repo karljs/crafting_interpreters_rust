@@ -15,6 +15,7 @@ impl Lox {
         let lexer = Lexer::from_source(input);
         let mut parser = Parser::from_tokens(lexer.tokens());
         let program = parser.parse()?;
+        println!("{:?}", program);
         Ok(Lox {
             program,
             environment: Environment::new(),

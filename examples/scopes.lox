@@ -1,0 +1,10 @@
+{
+  var x = 5;
+  {
+    var y = 2 * 8.1;
+    print y;
+    x = -3;
+    print x;
+  }
+  print x;
+}

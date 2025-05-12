@@ -91,7 +91,7 @@ impl Parser {
             Some(TokenType::Equal) => {
                 self.consume();
                 let rhs = self.expr()?;
-                self.consume_type(TokenType::SemiColon);
+                self.consume_type(TokenType::SemiColon).unwrap();
                 Ok(Declaration::Variable {
                     identifier: ident,
                     value: Some(rhs),
@@ -117,6 +117,23 @@ impl Parser {
                 Ok(Statement::Print(rhs))
             }
             Some(TokenType::Eof) | None => Err(eof_parse_error::<Statement>()),
+            Some(TokenType::LeftBrace) => {
+                self.consume();
+                let mut decls = Vec::new();
+                loop {
+                    match self.peek_token_type() {
+                        Some(TokenType::Eof) => todo!(),
+                        Some(TokenType::RightBrace) => {
+                            self.consume();
+                            return Ok(Statement::Block(decls));
+                        }
+                        _ => {
+                            let decl = self.declaration()?;
+                            decls.push(decl);
+                        }
+                    }
+                }
+            }
             Some(_) => {
                 let rhs = self.expr()?;
                 match self.consume_type(TokenType::SemiColon) {
@@ -125,6 +142,10 @@ impl Parser {
                 }
             }
         }
+    }
+
+    fn block(&mut self) -> Result<Expr> {
+        todo!()
     }
 
     fn expr(&mut self) -> Result<Expr> {

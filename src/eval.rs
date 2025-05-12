@@ -42,8 +42,6 @@ impl Eval for Declaration {
                 } else {
                     environment.define(identifier.clone(), None);
                 }
-                println!("Declared variable {:?}", identifier);
-                environment.debug_dump();
                 ExprEval::Nil
             }
             Declaration::Statement(statement) => statement.eval(environment),
@@ -64,6 +62,14 @@ impl Eval for Statement {
                 println!("Print called on: {:?}", res);
                 res
             }
+            Statement::Block(statements) => {
+                environment.enter_scope();
+                for stmt in statements {
+                    stmt.eval(environment);
+                }
+                environment.exit_scope();
+                ExprEval::Nil
+            }
         }
     }
 }
@@ -75,7 +81,7 @@ impl Eval for Expr {
             Expr::Assignment(lhs, rhs) => match (&lhs.token_type, rhs.eval(environment)) {
                 (TokenType::Identifier { name }, rhs) => {
                     if environment.get(name).is_ok() {
-                        environment.define(name.clone(), Some(rhs.clone()));
+                        environment.assign(name.clone(), Some(rhs.clone()));
                         rhs
                     } else {
                         ExprEval::RuntimeError(format!("Assigned to unknown variable {:?}", name))
