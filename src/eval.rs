@@ -70,6 +70,21 @@ impl Eval for Statement {
                 environment.exit_scope();
                 ExprEval::Nil
             }
+            Statement::IfElse(cond, then_branch, else_branch) => match cond.eval(environment) {
+                ExprEval::Bool(b) => {
+                    if b {
+                        return then_branch.eval(environment);
+                    } else {
+                        if let Some(else_branch) = &**else_branch {
+                            return else_branch.eval(environment);
+                        }
+                        return ExprEval::Nil;
+                    }
+                }
+                _ => ExprEval::RuntimeTypeError(
+                    "Expression in conditional didn't evaluate to a bool".to_string(),
+                ),
+            },
         }
     }
 }

@@ -104,6 +104,31 @@ impl Parser {
 
     fn statement(&mut self) -> Result<Statement> {
         match self.peek_token_type() {
+            Some(TokenType::If) => {
+                self.consume();
+                if let None = self.consume_type(TokenType::LeftParen) {
+                    return Err(parse_error::<Statement>(
+                        "Expected parenthesized expression after if statement",
+                    ));
+                }
+                let cond = self.expr()?;
+                if let None = self.consume_type(TokenType::RightParen) {
+                    return Err(parse_error::<Statement>(
+                        "Reached the end with an if expression not parenthesized correctly",
+                    ));
+                }
+                let then_branch = self.statement()?;
+                let mut else_branch = None;
+                if let Some(TokenType::Else) = self.peek_token_type() {
+                    self.consume();
+                    else_branch = Some(self.statement()?);
+                }
+                Ok(Statement::IfElse(
+                    cond,
+                    Box::new(then_branch),
+                    Box::new(else_branch),
+                ))
+            }
             Some(TokenType::Print) => {
                 self.consume();
                 let rhs = self.expr()?;

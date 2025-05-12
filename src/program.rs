@@ -20,6 +20,7 @@ pub enum Statement {
     Expr(Expr),
     Print(Expr),
     Block(Vec<Declaration>),
+    IfElse(Expr, Box<Statement>, Box<Option<Statement>>),
 }
 
 #[derive(Clone)]
