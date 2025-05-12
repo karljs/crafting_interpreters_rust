@@ -31,7 +31,3 @@ pub fn eof_parse_error<T>() -> Box<Error> {
 pub fn runtime_error<T>(msg: &str) -> Box<Error> {
     Box::new(Error::RuntimeError(msg.to_string()))
 }
-
-pub fn report_error(line: usize, loc: String, message: String) {
-    eprintln!("[line {}] Error {}: {}", line, loc, message);
-}

@@ -42,12 +42,6 @@ impl Parser {
         self.tokens.get(self.current).map(|t| &t.token_type)
     }
 
-    /// Peek at the token after the current one, which makes it easier
-    /// to distinguish between, e.g., = and ==
-    fn peek_next_token_type(&self) -> Option<&TokenType> {
-        self.tokens.get(self.current + 1).map(|t| &t.token_type)
-    }
-
     /// Get at the current token, including all metadata
     fn current_token(&mut self) -> Result<&Token> {
         self.tokens
@@ -142,10 +136,6 @@ impl Parser {
                 }
             }
         }
-    }
-
-    fn block(&mut self) -> Result<Expr> {
-        todo!()
     }
 
     fn expr(&mut self) -> Result<Expr> {

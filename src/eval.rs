@@ -1,6 +1,5 @@
 use crate::{
-    environment::{self, Environment},
-    error::runtime_error,
+    environment::Environment,
     lexer::TokenType,
     program::{BinaryOp, Declaration, Expr, Literal, Program, Statement, UnaryOp},
 };
@@ -15,8 +14,9 @@ pub enum ExprEval {
     String(String),
     Bool(bool),
     Nil,
+
     RuntimeError(String),
-    TypeError(String),
+    RuntimeTypeError(String),
 }
 
 pub trait Eval {
@@ -106,8 +106,10 @@ impl Eval for Expr {
             Expr::Unary(unary_op, expr) => match (unary_op, expr.eval(environment)) {
                 (UnaryOp::Negate, ExprEval::Number(n)) => ExprEval::Number(-n),
                 (UnaryOp::Not, ExprEval::Bool(b)) => ExprEval::Bool(!b),
-                (_, e @ ExprEval::TypeError(_)) => e,
-                (_, e) => ExprEval::TypeError(format!("Can't apply {:?} to {:?}", unary_op, e)),
+                (_, e @ ExprEval::RuntimeTypeError(_)) => e,
+                (_, e) => {
+                    ExprEval::RuntimeTypeError(format!("Can't apply {:?} to {:?}", unary_op, e))
+                }
             },
             Expr::Literal(literal) => literal.eval(environment),
             Expr::Grouping(expr) => expr.eval(environment),
@@ -158,7 +160,7 @@ impl Add for ExprEval {
         match (self, rhs) {
             (ExprEval::Number(l), ExprEval::Number(r)) => ExprEval::Number(l + r),
             (ExprEval::String(l), ExprEval::String(r)) => ExprEval::String(format!("{l}{r}")),
-            (l, r) => ExprEval::TypeError(format!("Can't add {:?} and {:?}", l, r)),
+            (l, r) => ExprEval::RuntimeTypeError(format!("Can't add {:?} and {:?}", l, r)),
         }
     }
 }
@@ -169,7 +171,7 @@ impl Sub for ExprEval {
     fn sub(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (ExprEval::Number(l), ExprEval::Number(r)) => ExprEval::Number(l - r),
-            (l, r) => ExprEval::TypeError(format!("Can't subtract {:?} from {:?}", r, l)),
+            (l, r) => ExprEval::RuntimeTypeError(format!("Can't subtract {:?} from {:?}", r, l)),
         }
     }
 }
@@ -180,7 +182,7 @@ impl Mul for ExprEval {
     fn mul(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (ExprEval::Number(l), ExprEval::Number(r)) => ExprEval::Number(l * r),
-            (l, r) => ExprEval::TypeError(format!("Can't multiply {:?} and {:?}", l, r)),
+            (l, r) => ExprEval::RuntimeTypeError(format!("Can't multiply {:?} and {:?}", l, r)),
         }
     }
 }
@@ -191,7 +193,7 @@ impl Div for ExprEval {
     fn div(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (ExprEval::Number(l), ExprEval::Number(r)) => ExprEval::Number(l / r),
-            (l, r) => ExprEval::TypeError(format!("Can't divide {:?} by {:?}", l, r)),
+            (l, r) => ExprEval::RuntimeTypeError(format!("Can't divide {:?} by {:?}", l, r)),
         }
     }
 }
