@@ -128,6 +128,22 @@ impl Eval for Expr {
             },
             Expr::Literal(literal) => literal.eval(environment),
             Expr::Grouping(expr) => expr.eval(environment),
+            Expr::Logical(lhs, logical_op, rhs) => {
+                // as with many things, this diverges from the book
+                // because I don't really want to implement implicit
+                // "thruthiness"
+                match (lhs.eval(environment), logical_op, rhs.eval(environment)) {
+                    (ExprEval::Bool(lhs), crate::program::LogicalOp::Or, ExprEval::Bool(rhs)) => {
+                        return ExprEval::Bool(lhs || rhs);
+                    }
+                    (ExprEval::Bool(lhs), crate::program::LogicalOp::And, ExprEval::Bool(rhs)) => {
+                        return ExprEval::Bool(lhs && rhs);
+                    }
+                    _ => ExprEval::RuntimeTypeError(
+                        "Logical operator applied to non-boolean value".to_string(),
+                    ),
+                }
+            }
         }
     }
 }

@@ -1,6 +1,8 @@
 use crate::error::{Result, eof_parse_error, parse_error};
 use crate::lexer::{Token, TokenType};
-use crate::program::{BinaryOp, Declaration, Expr, Literal, Program, Statement, UnaryOp, binop};
+use crate::program::{
+    BinaryOp, Declaration, Expr, Literal, LogicalOp, Program, Statement, UnaryOp, binop,
+};
 
 pub struct Parser {
     pub tokens: Vec<Token>,
@@ -168,7 +170,7 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> Result<Expr> {
-        let lhs = self.equality()?;
+        let lhs = self.or()?;
 
         if let Some(TokenType::Equal) = self.peek_token_type() {
             self.consume_type(TokenType::Equal);
@@ -188,6 +190,40 @@ impl Parser {
             }
         }
         return Ok(lhs);
+    }
+
+    fn or(&mut self) -> Result<Expr> {
+        let lhs = self.and()?;
+
+        loop {
+            match self.peek_token_type() {
+                Some(TokenType::Or) => {
+                    self.consume();
+                    let rhs = self.and()?;
+                    return Ok(Expr::Logical(Box::new(lhs), LogicalOp::Or, Box::new(rhs)));
+                }
+                _ => {
+                    return Ok(lhs);
+                }
+            }
+        }
+    }
+
+    fn and(&mut self) -> Result<Expr> {
+        let lhs = self.equality()?;
+
+        loop {
+            match self.peek_token_type() {
+                Some(TokenType::And) => {
+                    self.consume();
+                    let rhs = self.equality()?;
+                    return Ok(Expr::Logical(Box::new(lhs), LogicalOp::And, Box::new(rhs)));
+                }
+                _ => {
+                    return Ok(lhs);
+                }
+            }
+        }
     }
 
     fn equality(&mut self) -> Result<Expr> {

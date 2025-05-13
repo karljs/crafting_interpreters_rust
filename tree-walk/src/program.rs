@@ -30,6 +30,13 @@ pub enum Expr {
     Assignment(Token, Box<Expr>),
     Literal(Literal),
     Grouping(Box<Expr>),
+    Logical(Box<Expr>, LogicalOp, Box<Expr>),
+}
+
+#[derive(Clone, Debug)]
+pub enum LogicalOp {
+    Or,
+    And,
 }
 
 #[derive(Clone)]
@@ -72,6 +79,7 @@ impl fmt::Debug for Expr {
                 write!(f, "({:?} {:?} {:?})", binary_op, lhs, rhs)
             }
             Expr::Grouping(expr) => write!(f, "(group {:?})", expr),
+            Expr::Logical(lhs, op, rhs) => write!(f, "{:?} {:?} {:?}", lhs, op, rhs),
         }
     }
 }
