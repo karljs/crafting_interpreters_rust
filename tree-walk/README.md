@@ -1,13 +1,15 @@
 # Work in Progress
 
-This is a work-in-progress implementation of the tree-walk interpreter
-for Lox from the first half of the book [Crafting
-Interpreters](https://craftinginterpreters.com).
+This is an intentionally naive, painfully slow, and still-incomplete
+implementation of the tree-walk interpreter for Lox from the first
+half of the book [Crafting
+Interpreters](https://craftinginterpreters.com).  I'm porting it to
+Rust, chapter-by-chapter, with no foresight, which means that it's
+unidiomatic at times, as the book uses Java in the first half, along
+with some awkward OOP patterns.
 
-I'm porting it to Rust, chapter-by-chapter, with no foresight, which
-means that it's unidiomatic at times, as the book uses Java in the
-first half, along with some awkward OOP patterns.
-
+I plan to be more particular for the second half, focusing on the
+bytecode-based implementation.
 
 ## Usage
 
