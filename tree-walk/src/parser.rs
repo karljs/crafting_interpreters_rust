@@ -131,6 +131,12 @@ impl Parser {
                     Box::new(else_branch),
                 ))
             }
+            Some(TokenType::For) => {
+                return self.for_statement();
+            }
+            Some(TokenType::While) => {
+                return self.while_statement();
+            }
             Some(TokenType::Print) => {
                 self.consume();
                 let rhs = self.expr()?;
@@ -163,6 +169,72 @@ impl Parser {
                 }
             }
         }
+    }
+
+    fn for_statement(&mut self) -> Result<Statement> {
+        self.consume_type(TokenType::For);
+
+        if let None = self.consume_type(TokenType::LeftParen) {
+            return Err(parse_error::<Statement>("Expected '(' after 'for'."));
+        }
+
+        let initializer = if let Some(TokenType::SemiColon) = self.peek_token_type() {
+            self.consume();
+            None
+        } else if let Some(TokenType::Var) = self.peek_token_type() {
+            Some(Box::new(self.var_declaration()?))
+        } else {
+            let expr = self.expr()?;
+            if let None = self.consume_type(TokenType::SemiColon) {
+                return Err(parse_error::<Statement>(
+                    "Expected ';' after loop initializer.",
+                ));
+            }
+            Some(Box::new(Declaration::Statement(Statement::Expr(expr))))
+        };
+
+        // Condition
+        let condition = if let Some(TokenType::SemiColon) = self.peek_token_type() {
+            None
+        } else {
+            let condition = self.expr()?;
+            Some(Box::new(condition))
+        };
+
+        if let None = self.consume_type(TokenType::SemiColon) {
+            return Err(parse_error::<Statement>(
+                "Expected ';' after loop condition.",
+            ));
+        }
+
+        let increment = if let Some(TokenType::RightParen) = self.peek_token_type() {
+            None
+        } else {
+            let increment = self.expr()?;
+            Some(Box::new(increment))
+        };
+
+        if let None = self.consume_type(TokenType::RightParen) {
+            return Err(parse_error::<Statement>("Expected ')' after for clauses."));
+        }
+
+        let body = self.statement()?;
+
+        return Ok(Statement::For(
+            initializer,
+            condition,
+            increment,
+            Box::new(body),
+        ));
+    }
+
+    fn while_statement(&mut self) -> Result<Statement> {
+        self.consume_type(TokenType::While);
+        self.consume_type(TokenType::LeftParen);
+        let cond = self.expr()?;
+        self.consume_type(TokenType::RightParen);
+        let body = self.statement()?;
+        return Ok(Statement::While(cond, Box::new(body)));
     }
 
     fn expr(&mut self) -> Result<Expr> {

@@ -85,6 +85,75 @@ impl Eval for Statement {
                     "Expression in conditional didn't evaluate to a bool".to_string(),
                 ),
             },
+            Statement::While(cond, body) => loop {
+                match cond.eval(environment) {
+                    ExprEval::Bool(cond) => {
+                        if cond {
+                            body.eval(environment);
+                        } else {
+                            return ExprEval::Nil;
+                        }
+                    }
+                    _ => {
+                        return ExprEval::RuntimeTypeError(
+                            "Trying to evaluate non-bool type as a loop condition".to_string(),
+                        );
+                    }
+                }
+            },
+            Statement::For(initializer, condition, increment, body) => {
+                // Create a new scope for the for loop
+                environment.enter_scope();
+                
+                // Run the initializer if it exists
+                if let Some(init) = initializer {
+                    init.eval(environment);
+                }
+                
+                // If no condition is provided, use 'true'
+                let result = match condition {
+                    Some(cond) => {
+                        // Loop until the condition is false
+                        loop {
+                            match cond.eval(environment) {
+                                ExprEval::Bool(b) => {
+                                    if !b {
+                                        break ExprEval::Nil;
+                                    }
+                                    
+                                    // Execute the body
+                                    body.eval(environment);
+                                    
+                                    // Execute the increment
+                                    if let Some(inc) = increment {
+                                        inc.eval(environment);
+                                    }
+                                },
+                                _ => {
+                                    break ExprEval::RuntimeTypeError(
+                                        "For loop condition did not evaluate to a boolean".to_string(),
+                                    );
+                                }
+                            }
+                        }
+                    },
+                    None => {
+                        // Infinite loop with no condition (equivalent to 'while true')
+                        loop {
+                            body.eval(environment);
+                            
+                            // Execute the increment
+                            if let Some(inc) = increment {
+                                inc.eval(environment);
+                            }
+                        }
+                    }
+                };
+                
+                // Exit the scope after the loop is done
+                environment.exit_scope();
+                result
+            },
         }
     }
 }

@@ -21,6 +21,8 @@ pub enum Statement {
     Print(Expr),
     Block(Vec<Declaration>),
     IfElse(Expr, Box<Statement>, Box<Option<Statement>>),
+    While(Expr, Box<Statement>),
+    For(Option<Box<Declaration>>, Option<Box<Expr>>, Option<Box<Expr>>, Box<Statement>),
 }
 
 #[derive(Clone)]
