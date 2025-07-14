@@ -1,4 +1,4 @@
-use crate::{opcode::Instruction, value::Value};
+use crate::{instruction::Instruction, value::Value};
 
 #[derive(Default)]
 pub struct Chunk {

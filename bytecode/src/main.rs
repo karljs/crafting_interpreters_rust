@@ -1,7 +1,7 @@
 mod chunk;
 mod debug;
 mod error;
-mod opcode;
+mod instruction;
 mod value;
 
 use chunk::Chunk;
