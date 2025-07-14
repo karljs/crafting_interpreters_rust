@@ -1,46 +1,51 @@
-use std::{collections::HashMap, ops::Range};
-
-use crate::{debug::disassemble_instructions, opcode::OpCode, value::Value};
+use crate::{opcode::Instruction, value::Value};
 
 #[derive(Default)]
 pub struct Chunk {
-    code: Vec<u8>,
+    name: String,
+    instructions: Vec<Instruction>,
     values: Vec<Value>,
-    lines: HashMap<u8, Range<u8>>,
+    lines: Vec<usize>,
 }
 
 impl Chunk {
-    pub fn new() -> Self {
-        Chunk::default()
+    pub fn new(name: &str) -> Self {
+        Chunk {
+            name: name.to_string(),
+            ..Chunk::default()
+        }
     }
 
-    pub fn write_op(&mut self, op: OpCode, line: u8) -> u8 {
-        self.write_data(op.into(), line)
+    pub fn op_return(mut self, line: usize) -> Chunk {
+        self.instructions.push(Instruction::Return);
+        self.lines.push(line);
+        self
     }
 
-    pub fn write_data(&mut self, data: u8, line: u8) -> u8 {
-        let code_last_idx = self.code.len() as u8;
-        self.code.push(data);
-
-        self.lines
-            .entry(line)
-            .and_modify(|range| range.end = code_last_idx + 1)
-            .or_insert(Range {
-                start: code_last_idx,
-                end: code_last_idx + 1,
-            });
-        code_last_idx
+    pub fn op_constant(mut self, constant: Value, line: usize) -> Chunk {
+        let value_idx = self.values.len() as u8;
+        self.instructions.push(Instruction::Constant(value_idx));
+        self.values.push(constant);
+        self.lines.push(line);
+        self
     }
 
-    pub fn add_constant(&mut self, val: f64) -> u8 {
-        self.values.push(val);
-        (self.values.len() - 1) as u8
-    }
+    pub fn disassemble(&self) {
+        println!("== {} ==", self.name);
 
-    pub fn disassemble(&self, name: &str) {
-        println!("{:?}", &self.lines);
-
-        println!("== {} ==", name);
-        disassemble_instructions(0, &self.code, &self.values, &self.lines);
+        let instruction_size = std::mem::size_of::<Instruction>();
+        let mut previous_line = None;
+        for (idx, instruction) in self.instructions.iter().enumerate() {
+            print!("{addr:0>4} ", addr = idx * instruction_size);
+            let line = self.lines[idx as usize];
+            if previous_line.is_some_and(|prev: usize| prev == line) {
+                print!("   | ");
+            } else {
+                print!("{line:>4} ");
+                previous_line = Some(line);
+            }
+            instruction.disassemble(&self.values);
+            println!();
+        }
     }
 }

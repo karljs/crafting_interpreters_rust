@@ -1,36 +1,38 @@
 use std::fmt::Display;
 
-use crate::error::LoxError;
+use crate::value::Value;
 
-#[repr(u8)]
-#[derive(Debug)]
-pub enum OpCode {
-    Return = 1,
-    Constant = 2,
+#[derive(Debug, PartialEq)]
+pub enum Instruction {
+    Return,
+    Constant(u8),
 }
 
-// Surely there's a less verbose way to do this
-impl TryFrom<u8> for OpCode {
-    type Error = LoxError;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            1 => Ok(OpCode::Return),
-            2 => Ok(OpCode::Constant),
-            _ => Err(LoxError::InvalidOpcode),
+impl Instruction {
+    pub fn disassemble(&self, values: &[Value]) {
+        match self {
+            Instruction::Return => print!("return"),
+            Instruction::Constant(idx) => {
+                print!("{:<16} {:>4} {}", "constant", idx, values[*idx as usize]);
+            }
         }
     }
 }
 
-impl Into<u8> for OpCode {
-    fn into(self) -> u8 {
-        self as u8
-    }
-}
-
-impl Display for OpCode {
+impl Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = format!("{:?}", self);
         name.fmt(f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::mem::size_of;
+
+    #[test]
+    fn assert_instruction_size() {
+        assert!(size_of::<Instruction>() <= 4);
     }
 }
