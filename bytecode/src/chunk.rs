@@ -1,13 +1,9 @@
-use crate::{
-    instruction::{self, Instruction},
-    value::Value,
-};
+use crate::{instruction::Instruction, value::Value};
 
 #[derive(Default)]
 pub struct Chunk {
     name: String,
     instructions: Vec<Instruction>,
-    ip: usize,
     lines: Vec<usize>,
 }
 

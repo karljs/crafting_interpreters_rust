@@ -16,6 +16,6 @@ fn main() {
         .op_return(123);
     // chunk.disassemble();
 
-    let vm = VM {};
+    let mut vm = VM::new();
     _ = vm.interpret(&chunk);
 }

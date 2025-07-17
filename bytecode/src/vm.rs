@@ -1,24 +1,56 @@
-use crate::{chunk::Chunk, error::Result, instruction::Instruction};
+use crate::{
+    chunk::Chunk,
+    error::{LoxError, Result},
+    instruction::Instruction,
+    value::Value,
+};
 use log::{Level, log_enabled};
 
-pub struct VM {}
+pub const STACK_STARTING_CAPACITY: usize = 256;
+
+pub struct VM {
+    stack: Vec<Value>,
+}
 
 impl VM {
-    pub fn interpret(&self, chunk: &Chunk) -> Result<()> {
+    pub fn new() -> Self {
+        Self {
+            stack: Vec::with_capacity(STACK_STARTING_CAPACITY),
+        }
+    }
+
+    pub fn interpret(&mut self, chunk: &Chunk) -> Result<()> {
         for instruction in chunk {
             if log_enabled!(Level::Debug) {
+                println!("Current stack: {:?}", &self.stack);
+                print!("Instruction: ");
                 instruction.disassemble();
-                println!()
+                println!();
             }
 
             match instruction {
-                Instruction::Return => return Ok(()),
+                Instruction::Return => {
+                    // intentionally incorrect implementation, for debugging
+                    if let Some(val) = self.pop() {
+                        println!("return {:?}", val);
+                        return Ok(());
+                    } else {
+                        return Err(LoxError::RuntimeError);
+                    }
+                }
                 Instruction::Constant(val) => {
-                    println!("{val}");
-                    continue;
+                    self.push(*val);
                 }
             }
         }
         Ok(())
+    }
+
+    fn push(&mut self, value: Value) {
+        self.stack.push(value)
+    }
+
+    fn pop(&mut self) -> Option<Value> {
+        self.stack.pop()
     }
 }
