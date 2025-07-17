@@ -29,6 +29,16 @@ impl VM {
             }
 
             match instruction {
+                Instruction::Constant(val) => {
+                    self.push(*val);
+                }
+                Instruction::Negate => {
+                    if let Some(val) = self.pop() {
+                        self.push(-val);
+                    } else {
+                        return Err(LoxError::RuntimeError);
+                    }
+                }
                 Instruction::Return => {
                     // intentionally incorrect implementation, for debugging
                     if let Some(val) = self.pop() {
@@ -37,9 +47,6 @@ impl VM {
                     } else {
                         return Err(LoxError::RuntimeError);
                     }
-                }
-                Instruction::Constant(val) => {
-                    self.push(*val);
                 }
             }
         }

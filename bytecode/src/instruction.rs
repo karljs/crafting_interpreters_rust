@@ -4,17 +4,19 @@ use crate::value::Value;
 
 #[derive(Debug, PartialEq)]
 pub enum Instruction {
-    Return,
     Constant(Value),
+    Negate,
+    Return,
 }
 
 impl Instruction {
     pub fn disassemble(&self) {
         match self {
-            Instruction::Return => print!("return"),
             Instruction::Constant(val) => {
                 print!("{:<16} {:>4}", "constant", val);
             }
+            Instruction::Negate => print!("negate"),
+            Instruction::Return => print!("return"),
         }
     }
 }

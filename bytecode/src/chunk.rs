@@ -15,14 +15,22 @@ impl Chunk {
         }
     }
 
-    pub fn op_return(mut self, line: usize) -> Chunk {
-        self.instructions.push(Instruction::Return);
+    // TODO: DRY
+
+    pub fn op_constant(mut self, constant: Value, line: usize) -> Chunk {
+        self.instructions.push(Instruction::Constant(constant));
         self.lines.push(line);
         self
     }
 
-    pub fn op_constant(mut self, constant: Value, line: usize) -> Chunk {
-        self.instructions.push(Instruction::Constant(constant));
+    pub fn op_negate(mut self, line: usize) -> Chunk {
+        self.instructions.push(Instruction::Negate);
+        self.lines.push(line);
+        self
+    }
+
+    pub fn op_return(mut self, line: usize) -> Chunk {
+        self.instructions.push(Instruction::Return);
         self.lines.push(line);
         self
     }
