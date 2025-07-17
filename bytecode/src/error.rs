@@ -1,13 +1,22 @@
-// use std::error::Error;
-// use std::fmt;
+use std::error::Error;
+use std::fmt;
 
-// #[derive(Debug)]
-// pub enum LoxError {}
+pub type Result<T> = std::result::Result<T, LoxError>;
 
-// impl fmt::Display for LoxError {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(f, "");
-//     }
-// }
+#[derive(Debug)]
+pub enum LoxError {
+    CompileError,
+    RuntimeError,
+}
 
-// impl Error for LoxError {}
+impl fmt::Display for LoxError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let out = match self {
+            LoxError::CompileError => "Compile Error",
+            LoxError::RuntimeError => "Runtime Error",
+        };
+        write!(f, "{out}")
+    }
+}
+
+impl Error for LoxError {}
