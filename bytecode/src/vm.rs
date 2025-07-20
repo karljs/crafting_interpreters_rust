@@ -42,8 +42,36 @@ impl VM {
                 Instruction::Return => {
                     // intentionally incorrect implementation, for debugging
                     if let Some(val) = self.pop() {
-                        println!("return {:?}", val);
+                        println!("return {val:?}");
                         return Ok(());
+                    } else {
+                        return Err(LoxError::RuntimeError);
+                    }
+                }
+                Instruction::Add => {
+                    if let (Some(lhs), Some(rhs)) = (self.pop(), self.pop()) {
+                        self.push(lhs + rhs)
+                    } else {
+                        return Err(LoxError::RuntimeError);
+                    }
+                }
+                Instruction::Subtract => {
+                    if let (Some(lhs), Some(rhs)) = (self.pop(), self.pop()) {
+                        self.push(lhs - rhs)
+                    } else {
+                        return Err(LoxError::RuntimeError);
+                    }
+                }
+                Instruction::Multiply => {
+                    if let (Some(lhs), Some(rhs)) = (self.pop(), self.pop()) {
+                        self.push(lhs * rhs)
+                    } else {
+                        return Err(LoxError::RuntimeError);
+                    }
+                }
+                Instruction::Divide => {
+                    if let (Some(lhs), Some(rhs)) = (self.pop(), self.pop()) {
+                        self.push(lhs / rhs)
                     } else {
                         return Err(LoxError::RuntimeError);
                     }

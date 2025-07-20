@@ -15,6 +15,8 @@ fn main() -> Result<(), error::LoxError> {
     let chunk = Chunk::new("test chunk")
         .op_constant(1.2, 123)
         .op_negate(123)
+        .op_constant(5.0, 123)
+        .op_subtract(123)
         .op_return(123);
 
     if log_enabled!(Level::Debug) {

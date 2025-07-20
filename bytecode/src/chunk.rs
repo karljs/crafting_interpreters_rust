@@ -7,6 +7,14 @@ pub struct Chunk {
     lines: Vec<usize>,
 }
 
+macro_rules! op {
+    ($self:expr, $instruction:expr, $line:ident) => {{
+        $self.instructions.push($instruction);
+        $self.lines.push($line);
+        $self
+    }};
+}
+
 impl Chunk {
     pub fn new(name: &str) -> Self {
         Chunk {
@@ -15,24 +23,30 @@ impl Chunk {
         }
     }
 
-    // TODO: DRY
-
     pub fn op_constant(mut self, constant: Value, line: usize) -> Chunk {
-        self.instructions.push(Instruction::Constant(constant));
-        self.lines.push(line);
-        self
+        op!(self, Instruction::Constant(constant), line)
     }
 
     pub fn op_negate(mut self, line: usize) -> Chunk {
-        self.instructions.push(Instruction::Negate);
-        self.lines.push(line);
-        self
+        op!(self, Instruction::Negate, line)
     }
 
     pub fn op_return(mut self, line: usize) -> Chunk {
-        self.instructions.push(Instruction::Return);
-        self.lines.push(line);
-        self
+        op!(self, Instruction::Return, line)
+    }
+
+    pub fn op_add(mut self, line: usize) -> Chunk {
+        op!(self, Instruction::Add, line)
+    }
+
+    pub fn op_subtract(mut self, line: usize) -> Chunk {
+        op!(self, Instruction::Subtract, line)
+    }
+    pub fn op_multiply(mut self, line: usize) -> Chunk {
+        op!(self, Instruction::Multiply, line)
+    }
+    pub fn op_divide(mut self, line: usize) -> Chunk {
+        op!(self, Instruction::Divide, line)
     }
 
     pub fn disassemble(&self) {
