@@ -1,28 +1,22 @@
-mod chunk;
-mod debug;
-mod error;
-mod instruction;
-mod value;
-mod vm;
+use std::path::PathBuf;
 
-use chunk::Chunk;
-use log::{Level, log_enabled};
-use vm::VM;
+use bytecode::{run_from_source, run_repl};
+use clap::Parser;
+use clio::Input;
 
-fn main() -> Result<(), error::LoxError> {
-    env_logger::init();
+#[derive(Parser, Debug)]
+struct Args {
+    #[arg(value_name = "FILE")]
+    file: Option<PathBuf>,
+}
 
-    let chunk = Chunk::new("test chunk")
-        .op_constant(1.2, 123)
-        .op_negate(123)
-        .op_constant(5.0, 123)
-        .op_subtract(123)
-        .op_return(123);
+fn main() -> anyhow::Result<()> {
+    let args = Args::parse();
 
-    if log_enabled!(Level::Debug) {
-        chunk.disassemble();
+    if let Some(filename) = &args.file {
+        let reader = Box::new(Input::new(filename)?);
+        run_from_source(reader)
+    } else {
+        run_repl()
     }
-
-    let mut vm = VM::new();
-    vm.interpret(&chunk)
 }
