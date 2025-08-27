@@ -1,4 +1,8 @@
-use crate::{chunk::Chunk, error::LoxError, instruction::Instruction, value::Value};
+use crate::chunk::Chunk;
+use crate::error::LoxError;
+use crate::instruction::Instruction;
+use crate::scanner::Scanner;
+use crate::value::Value;
 use log::{Level, log_enabled};
 
 pub const STACK_STARTING_CAPACITY: usize = 256;
@@ -14,7 +18,12 @@ impl VM {
         }
     }
 
-    pub fn interpret(&mut self, chunk: &Chunk) -> anyhow::Result<()> {
+    pub fn interpret(&mut self, source: String) {
+        let scanner = Scanner::new(source);
+        todo!();
+    }
+
+    pub fn run_chunk(&mut self, chunk: &Chunk) -> anyhow::Result<()> {
         for instruction in chunk {
             if log_enabled!(Level::Debug) {
                 println!("Current stack: {:?}", &self.stack);

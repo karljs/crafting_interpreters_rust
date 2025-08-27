@@ -1,7 +1,10 @@
 pub mod chunk;
+pub mod compiler;
 pub mod debug;
 pub mod error;
 pub mod instruction;
+pub mod scanner;
+pub mod token;
 pub mod value;
 pub mod vm;
 
@@ -38,5 +41,5 @@ pub fn run() -> anyhow::Result<()> {
     }
 
     let mut vm = VM::new();
-    vm.interpret(&chunk)
+    vm.run_chunk(&chunk)
 }
