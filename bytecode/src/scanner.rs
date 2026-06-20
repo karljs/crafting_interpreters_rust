@@ -1,3 +1,6 @@
+use std::iter::Peekable;
+use std::str::Chars;
+
 use crate::token::Token;
 
 pub struct Scanner {
@@ -10,65 +13,73 @@ impl Scanner {
         Scanner { line: 0, source }
     }
 
-    pub fn lexemes(&self) -> Lexemes {
+    pub fn lexemes(&self) -> Lexemes<'_> {
         Lexemes {
-            current: 0,
-            characters: self.source.chars().collect(),
+            chars: self.source.chars().peekable(),
         }
     }
 }
 
-pub struct Lexemes {
-    current: usize,
-    characters: Vec<char>,
+pub struct Lexemes<'a> {
+    chars: Peekable<Chars<'a>>,
 }
 
-macro_rules! token {
-    ( $self:expr, $token:expr, $num_chars:literal ) => {{
-        $self.current += $num_chars;
-        return Some($token);
-    }};
-}
-
-impl Iterator for Lexemes {
+impl<'a> Iterator for Lexemes<'a> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.current < self.characters.len() && self.characters[self.current].is_whitespace()
-        {
-            self.current += 1;
+        while matches!(self.chars.peek(), Some(c) if c.is_whitespace()) {
+            self.chars.next();
         }
 
-        if self.current >= self.characters.len() {
-            return Some(Token::EOF);
-        }
+        let ch = match self.chars.next() {
+            None => return Some(Token::EOF),
+            Some(c) => c,
+        };
 
-        match self.characters[self.current..] {
-            // check single-character tokens
-            ['(', ..] => token!(self, Token::LeftParen, 1),
-            [')', ..] => token!(self, Token::RightParen, 1),
-            ['{', ..] => token!(self, Token::LeftBrace, 1),
-            ['}', ..] => token!(self, Token::RightBrace, 1),
-            [';', ..] => token!(self, Token::Semicolon, 1),
-            [',', ..] => token!(self, Token::Comma, 1),
-            ['.', ..] => token!(self, Token::Dot, 1),
-            ['-', ..] => token!(self, Token::Minus, 1),
-            ['+', ..] => token!(self, Token::Plus, 1),
-            ['/', ..] => token!(self, Token::Slash, 1),
-            ['*', ..] => token!(self, Token::Star, 1),
+        let token = match ch {
+            '(' => Token::LeftParen,
+            ')' => Token::RightParen,
+            '{' => Token::LeftBrace,
+            '}' => Token::RightBrace,
+            ';' => Token::Semicolon,
+            ',' => Token::Comma,
+            '.' => Token::Dot,
+            '-' => Token::Minus,
+            '+' => Token::Plus,
+            '/' => Token::Slash,
+            '*' => Token::Star,
+            '!' => match self.chars.peek() {
+                Some('=') => {
+                    self.chars.next();
+                    Token::BangEqual
+                }
+                _ => Token::Bang,
+            },
+            '=' => match self.chars.peek() {
+                Some('=') => {
+                    self.chars.next();
+                    Token::EqualEqual
+                }
+                _ => Token::Equal,
+            },
+            '<' => match self.chars.peek() {
+                Some('=') => {
+                    self.chars.next();
+                    Token::LessEqual
+                }
+                _ => Token::Less,
+            },
+            '>' => match self.chars.peek() {
+                Some('=') => {
+                    self.chars.next();
+                    Token::GreaterEqual
+                }
+                _ => Token::Greater,
+            },
+            _ => todo!(),
+        };
 
-            // check 1-or-2-character tokens
-            ['!', '=', ..] => token!(self, Token::BangEqual, 2),
-            ['!', ..] => token!(self, Token::Bang, 1),
-            ['=', '=', ..] => token!(self, Token::EqualEqual, 2),
-            ['=', ..] => token!(self, Token::Equal, 1),
-            ['<', '=', ..] => token!(self, Token::LessEqual, 2),
-            ['<', ..] => token!(self, Token::Less, 1),
-            ['>', '=', ..] => token!(self, Token::GreaterEqual, 2),
-            ['>', ..] => token!(self, Token::Greater, 1),
-            _ => {}
-        }
-
-        todo!()
+        Some(token)
     }
 }
