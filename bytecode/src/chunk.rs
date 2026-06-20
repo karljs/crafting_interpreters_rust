@@ -4,7 +4,7 @@ pub struct Chunk {
     name: String,
     pub code: Vec<u8>,
     pub constants: Vec<Value>,
-    lines: Vec<(u32, u32)>,
+    lines: Vec<(u32, usize)>,
 }
 
 impl Chunk {
@@ -52,8 +52,25 @@ impl Chunk {
         }
     }
 
+    fn line_at(&self, ip: usize) -> u32 {
+        let mut remaining = ip;
+        for &(line, count) in &self.lines {
+            if remaining < count {
+                return line;
+            }
+            remaining -= count;
+        }
+        panic!("ip {ip} out of range");
+    }
+
     fn disassemble_instruction(&self, ip: usize) -> usize {
-        print!("{ip:04} ");
+        let line = self.line_at(ip);
+        let prev_line = ip.checked_sub(1).map(|i| self.line_at(i));
+        if prev_line == Some(line) {
+            print!("{ip:04}    | ");
+        } else {
+            print!("{ip:04} {line:>4} ");
+        }
         let op = OpCode::read(self.code[ip]);
         match op {
             OpCode::Constant => {
