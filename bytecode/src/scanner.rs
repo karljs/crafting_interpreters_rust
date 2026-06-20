@@ -1,7 +1,7 @@
 use crate::token::Token;
 
 pub struct Scanner {
-    line: i32,
+    line: u32,
     source: String,
 }
 
@@ -39,9 +39,7 @@ impl Iterator for Lexemes {
             self.current += 1;
         }
 
-        let chars_remaining = self.characters.len() - self.current - 1;
-
-        if chars_remaining <= 0 {
+        if self.current >= self.characters.len() {
             return Some(Token::EOF);
         }
 

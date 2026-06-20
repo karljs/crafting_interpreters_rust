@@ -1,3 +1,3 @@
-pub fn compile(source: String) {
+pub fn compile(source: &str) {
     todo!();
 }

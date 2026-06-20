@@ -2,7 +2,7 @@ pub mod chunk;
 pub mod compiler;
 pub mod debug;
 pub mod error;
-pub mod instruction;
+pub mod opcode;
 pub mod scanner;
 pub mod token;
 pub mod value;
@@ -12,7 +12,7 @@ use std::io::Read;
 
 use log::{Level, log_enabled};
 
-use crate::{chunk::Chunk, vm::VM};
+use crate::{chunk::Chunk, opcode::OpCode, vm::VM};
 
 pub fn run_from_source(mut reader: Box<dyn Read>) -> anyhow::Result<()> {
     let mut contents = String::new();
@@ -22,24 +22,23 @@ pub fn run_from_source(mut reader: Box<dyn Read>) -> anyhow::Result<()> {
 }
 
 pub fn run_repl() -> anyhow::Result<()> {
-    println!("REPL");
-    Ok(())
+    // println!("REPL");
+    run()
 }
 
 pub fn run() -> anyhow::Result<()> {
     env_logger::init();
 
-    let chunk = Chunk::new("test chunk")
-        .op_constant(1.2, 123)
-        .op_negate(123)
-        .op_constant(5.0, 123)
-        .op_subtract(123)
-        .op_return(123);
+    let mut chunk = Chunk::new("test chunk");
+    chunk.emit_constant(1.2, 123);
+    chunk.emit_op(OpCode::Negate, 123);
+    chunk.emit_constant(5.0, 123);
+    chunk.emit_op(OpCode::Subtract, 123);
+    chunk.emit_op(OpCode::Return, 124);
 
     if log_enabled!(Level::Debug) {
         chunk.disassemble();
     }
 
-    let mut vm = VM::new();
-    vm.run_chunk(&chunk)
+    VM::new(&chunk).run()
 }

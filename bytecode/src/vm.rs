@@ -1,95 +1,68 @@
-use crate::chunk::Chunk;
-use crate::error::LoxError;
-use crate::instruction::Instruction;
-use crate::scanner::Scanner;
-use crate::value::Value;
+use crate::{chunk::Chunk, error::LoxError, opcode::OpCode, value::Value};
 use log::{Level, log_enabled};
 
-pub const STACK_STARTING_CAPACITY: usize = 256;
-
-pub struct VM {
+pub struct VM<'a> {
+    chunk: &'a Chunk,
+    ip: usize,
     stack: Vec<Value>,
 }
 
-impl VM {
-    pub fn new() -> Self {
+impl<'a> VM<'a> {
+    pub fn new(chunk: &'a Chunk) -> Self {
         Self {
-            stack: Vec::with_capacity(STACK_STARTING_CAPACITY),
+            chunk,
+            ip: 0,
+            stack: Vec::with_capacity(256),
         }
     }
 
-    pub fn interpret(&mut self, source: String) {
-        let scanner = Scanner::new(source);
-        todo!();
+    fn read_byte(&mut self) -> u8 {
+        let b = self.chunk.code[self.ip];
+        self.ip += 1;
+        b
     }
 
-    pub fn run_chunk(&mut self, chunk: &Chunk) -> anyhow::Result<()> {
-        for instruction in chunk {
+    fn read_opcode(&mut self) -> OpCode {
+        OpCode::read(self.read_byte())
+    }
+
+    fn read_constant(&mut self) -> Value {
+        let idx = self.read_byte() as usize;
+        self.chunk.constants[idx]
+    }
+
+    pub fn run(&mut self) -> anyhow::Result<()> {
+        loop {
             if log_enabled!(Level::Debug) {
-                println!("Current stack: {:?}", &self.stack);
-                print!("Instruction: ");
-                instruction.disassemble();
-                println!();
+                println!("stack: {:?}  ip: {}", &self.stack, self.ip);
             }
 
-            match instruction {
-                Instruction::Constant(val) => {
-                    self.push(*val);
+            match self.read_opcode() {
+                OpCode::Constant => {
+                    let val = self.read_constant();
+                    self.stack.push(val);
                 }
-                Instruction::Negate => {
-                    if let Some(val) = self.pop() {
-                        self.push(-val);
-                    } else {
-                        return Err(LoxError::RuntimeError.into());
-                    }
+                OpCode::Negate => {
+                    let val = self.stack.pop().ok_or(LoxError::RuntimeError)?;
+                    self.stack.push(-val);
                 }
-                Instruction::Return => {
-                    // intentionally incorrect implementation, for debugging
-                    if let Some(val) = self.pop() {
-                        println!("return {val:?}");
-                        return Ok(());
-                    } else {
-                        return Err(LoxError::RuntimeError.into());
-                    }
-                }
-                Instruction::Add => {
-                    if let (Some(lhs), Some(rhs)) = (self.pop(), self.pop()) {
-                        self.push(lhs + rhs)
-                    } else {
-                        return Err(LoxError::RuntimeError.into());
-                    }
-                }
-                Instruction::Subtract => {
-                    if let (Some(lhs), Some(rhs)) = (self.pop(), self.pop()) {
-                        self.push(lhs - rhs)
-                    } else {
-                        return Err(LoxError::RuntimeError.into());
-                    }
-                }
-                Instruction::Multiply => {
-                    if let (Some(lhs), Some(rhs)) = (self.pop(), self.pop()) {
-                        self.push(lhs * rhs)
-                    } else {
-                        return Err(LoxError::RuntimeError.into());
-                    }
-                }
-                Instruction::Divide => {
-                    if let (Some(lhs), Some(rhs)) = (self.pop(), self.pop()) {
-                        self.push(lhs / rhs)
-                    } else {
-                        return Err(LoxError::RuntimeError.into());
-                    }
+                OpCode::Add      => self.binary_op(|a, b| a + b)?,
+                OpCode::Subtract => self.binary_op(|a, b| a - b)?,
+                OpCode::Multiply => self.binary_op(|a, b| a * b)?,
+                OpCode::Divide   => self.binary_op(|a, b| a / b)?,
+                OpCode::Return => {
+                    let val = self.stack.pop().ok_or(LoxError::RuntimeError)?;
+                    println!("return {val:?}");
+                    return Ok(());
                 }
             }
         }
+    }
+
+    fn binary_op(&mut self, op: impl Fn(Value, Value) -> Value) -> anyhow::Result<()> {
+        let rhs = self.stack.pop().ok_or(LoxError::RuntimeError)?;
+        let lhs = self.stack.pop().ok_or(LoxError::RuntimeError)?;
+        self.stack.push(op(lhs, rhs));
         Ok(())
-    }
-
-    fn push(&mut self, value: Value) {
-        self.stack.push(value)
-    }
-
-    fn pop(&mut self) -> Option<Value> {
-        self.stack.pop()
     }
 }

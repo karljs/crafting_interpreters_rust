@@ -1,79 +1,72 @@
-use crate::{instruction::Instruction, value::Value};
+use crate::{opcode::OpCode, value::Value};
 
-#[derive(Default)]
 pub struct Chunk {
     name: String,
-    instructions: Vec<Instruction>,
-    lines: Vec<usize>,
-}
-
-macro_rules! op {
-    ($self:expr, $instruction:expr, $line:ident) => {{
-        $self.instructions.push($instruction);
-        $self.lines.push($line);
-        $self
-    }};
+    pub code: Vec<u8>,
+    pub constants: Vec<Value>,
+    lines: Vec<(u32, u32)>,
 }
 
 impl Chunk {
     pub fn new(name: &str) -> Self {
         Chunk {
             name: name.to_string(),
-            ..Chunk::default()
+            code: Vec::new(),
+            constants: Vec::new(),
+            lines: Vec::new(),
         }
     }
 
-    pub fn op_constant(mut self, constant: Value, line: usize) -> Chunk {
-        op!(self, Instruction::Constant(constant), line)
+    pub fn emit_op(&mut self, op: OpCode, line: u32) {
+        self.emit_byte(op as u8, line);
     }
 
-    pub fn op_negate(mut self, line: usize) -> Chunk {
-        op!(self, Instruction::Negate, line)
+    pub fn emit_byte(&mut self, byte: u8, line: u32) {
+        self.code.push(byte);
+        match self.lines.last_mut() {
+            Some(entry) if entry.0 == line => entry.1 += 1,
+            _ => self.lines.push((line, 1)),
+        }
     }
 
-    pub fn op_return(mut self, line: usize) -> Chunk {
-        op!(self, Instruction::Return, line)
+    pub fn add_constant(&mut self, value: Value) -> usize {
+        self.constants.push(value);
+        self.constants.len() - 1
     }
 
-    pub fn op_add(mut self, line: usize) -> Chunk {
-        op!(self, Instruction::Add, line)
-    }
-
-    pub fn op_subtract(mut self, line: usize) -> Chunk {
-        op!(self, Instruction::Subtract, line)
-    }
-    pub fn op_multiply(mut self, line: usize) -> Chunk {
-        op!(self, Instruction::Multiply, line)
-    }
-    pub fn op_divide(mut self, line: usize) -> Chunk {
-        op!(self, Instruction::Divide, line)
+    pub fn emit_constant(&mut self, value: Value, line: u32) {
+        let idx = self.add_constant(value);
+        if idx <= 0xFF {
+            self.emit_op(OpCode::Constant, line);
+            self.emit_byte(idx as u8, line);
+        } else {
+            panic!("too many constants in one chunk");
+        }
     }
 
     pub fn disassemble(&self) {
         println!("== {} ==", self.name);
-
-        let instruction_size = std::mem::size_of::<Instruction>();
-        let mut previous_line = None;
-        for (idx, instruction) in self.instructions.iter().enumerate() {
-            print!("{addr:0>4} ", addr = idx * instruction_size);
-            let line = self.lines[idx];
-            if previous_line.is_some_and(|prev: usize| prev == line) {
-                print!("   | ");
-            } else {
-                print!("{line:>4} ");
-                previous_line = Some(line);
-            }
-            instruction.disassemble();
-            println!();
+        let mut ip = 0;
+        while ip < self.code.len() {
+            ip = self.disassemble_instruction(ip);
         }
     }
-}
 
-impl<'a> IntoIterator for &'a Chunk {
-    type Item = &'a Instruction;
-    type IntoIter = std::slice::Iter<'a, Instruction>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.instructions.iter()
+    fn disassemble_instruction(&self, ip: usize) -> usize {
+        print!("{ip:04} ");
+        let op = OpCode::read(self.code[ip]);
+        match op {
+            OpCode::Constant => {
+                let idx = self.code[ip + 1] as usize;
+                println!("{:<16} {:>4} '{}'", "constant", idx, self.constants[idx]);
+                ip + 2
+            }
+            OpCode::Negate   => { println!("negate");   ip + 1 }
+            OpCode::Add      => { println!("add");      ip + 1 }
+            OpCode::Subtract => { println!("subtract"); ip + 1 }
+            OpCode::Multiply => { println!("multiply"); ip + 1 }
+            OpCode::Divide   => { println!("divide");   ip + 1 }
+            OpCode::Return   => { println!("return");   ip + 1 }
+        }
     }
 }
