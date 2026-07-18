@@ -14,7 +14,7 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     if let Some(filename) = &args.file {
-        let reader = Box::new(Input::new(filename)?);
+        let reader = Input::new(filename)?;
         run_from_source(reader)
     } else {
         run_repl()
