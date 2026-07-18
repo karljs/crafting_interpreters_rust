@@ -1,40 +1,49 @@
 use std::iter::Peekable;
-use std::str::Chars;
+use std::str::{CharIndices, Chars};
 
 use crate::token::Token;
 
 pub struct Scanner {
-    line: u32,
     source: String,
 }
 
 impl Scanner {
     pub fn new(source: String) -> Self {
-        Scanner { line: 0, source }
+        Scanner { source }
     }
 
     pub fn lexemes(&self) -> Lexemes<'_> {
         Lexemes {
-            chars: self.source.chars().peekable(),
+            chars: self.source.char_indices().peekable(),
+            line: 0,
             done: false,
         }
     }
 }
 
 pub struct Lexemes<'a> {
-    chars: Peekable<Chars<'a>>,
+    chars: Peekable<CharIndices<'a>>,
+    line: u32,
     done: bool,
+}
+
+impl Lexemes<'_> {
+    fn consume_if(&mut self, expected: char) -> bool {
+        self.chars.next_if(|&(_, c)| c == expected).is_some()
+    }
 }
 
 impl<'a> Iterator for Lexemes<'a> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while matches!(self.chars.peek(), Some(c) if c.is_whitespace()) {
-            self.chars.next();
+        while let Some((_, c)) = self.chars.next_if(|&(_, c)| c.is_whitespace()) {
+            if c == '\n' {
+                self.line += 1;
+            }
         }
 
-        let ch = match self.chars.next() {
+        let (_, ch) = match self.chars.next() {
             None => {
                 if !self.done {
                     self.done = true;
@@ -58,34 +67,34 @@ impl<'a> Iterator for Lexemes<'a> {
             '+' => Token::Plus,
             '/' => Token::Slash,
             '*' => Token::Star,
-            '!' => match self.chars.peek() {
-                Some('=') => {
-                    self.chars.next();
+            '!' => {
+                if self.consume_if('=') {
                     Token::BangEqual
+                } else {
+                    Token::Bang
                 }
-                _ => Token::Bang,
-            },
-            '=' => match self.chars.peek() {
-                Some('=') => {
-                    self.chars.next();
+            }
+            '=' => {
+                if self.consume_if('=') {
                     Token::EqualEqual
+                } else {
+                    Token::Equal
                 }
-                _ => Token::Equal,
-            },
-            '<' => match self.chars.peek() {
-                Some('=') => {
-                    self.chars.next();
+            }
+            '<' => {
+                if self.consume_if('=') {
                     Token::LessEqual
+                } else {
+                    Token::Less
                 }
-                _ => Token::Less,
-            },
-            '>' => match self.chars.peek() {
-                Some('=') => {
-                    self.chars.next();
+            }
+            '>' => {
+                if self.consume_if('=') {
                     Token::GreaterEqual
+                } else {
+                    Token::Greater
                 }
-                _ => Token::Greater,
-            },
+            }
             _ => todo!(),
         };
 
