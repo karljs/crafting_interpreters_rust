@@ -1,5 +1,5 @@
 use std::iter::Peekable;
-use std::str::{CharIndices, Chars};
+use std::str::CharIndices;
 
 use crate::token::Token;
 
