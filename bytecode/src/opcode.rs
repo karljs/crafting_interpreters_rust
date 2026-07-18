@@ -11,11 +11,10 @@ pub enum OpCode {
 }
 
 impl OpCode {
-    #[inline(always)]
+    #[inline]
     pub fn read(byte: u8) -> Self {
         // SAFETY: only called on bytes emitted by Chunk::emit_op,
-        // which takes OpCode and casts to u8 — no arbitrary bytes
-        // can occupy opcode positions in the stream.
+        // which takes OpCode and casts to u8
         unsafe { std::mem::transmute(byte) }
     }
 }
