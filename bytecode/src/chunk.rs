@@ -2,8 +2,8 @@ use crate::{opcode::OpCode, value::Value};
 
 pub struct Chunk {
     name: String,
-    pub code: Vec<u8>,
-    pub constants: Vec<Value>,
+    code: Vec<u8>,
+    constants: Vec<Value>,
     lines: Vec<(u32, usize)>,
 }
 
@@ -27,6 +27,14 @@ impl Chunk {
             Some(entry) if entry.0 == line => entry.1 += 1,
             _ => self.lines.push((line, 1)),
         }
+    }
+
+    pub fn code(&self) -> &[u8] {
+        &self.code
+    }
+
+    pub fn constant(&self, idx: usize) -> Value {
+        self.constants[idx]
     }
 
     pub fn add_constant(&mut self, value: Value) -> usize {

@@ -17,7 +17,7 @@ impl<'a> VM<'a> {
     }
 
     fn read_byte(&mut self) -> u8 {
-        let b = self.chunk.code[self.ip];
+        let b = self.chunk.code()[self.ip];
         self.ip += 1;
         b
     }
@@ -28,7 +28,7 @@ impl<'a> VM<'a> {
 
     fn read_constant(&mut self) -> Value {
         let idx = self.read_byte() as usize;
-        self.chunk.constants[idx]
+        self.chunk.constant(idx)
     }
 
     pub fn run(&mut self) -> anyhow::Result<()> {
