@@ -14,6 +14,7 @@ impl Scanner {
 
     pub fn lexemes(&self) -> Lexemes<'_> {
         Lexemes {
+            source: &self.source,
             chars: self.source.char_indices().peekable(),
             line: 0,
             done: false,
@@ -22,6 +23,7 @@ impl Scanner {
 }
 
 pub struct Lexemes<'a> {
+    source: &'a str,
     chars: Peekable<CharIndices<'a>>,
     line: u32,
     done: bool,
@@ -31,17 +33,38 @@ impl Lexemes<'_> {
     fn consume_if(&mut self, expected: char) -> bool {
         self.chars.next_if(|&(_, c)| c == expected).is_some()
     }
+
+    fn skip_whitespace(&mut self) -> bool {
+        let mut skipped = false;
+        while let Some((_, c)) = self.chars.next_if(|&(_, c)| c.is_whitespace()) {
+            if c == '\n' {
+                self.line += 1;
+            }
+            skipped = true;
+        }
+        skipped
+    }
+
+    fn skip_comment(&mut self) -> bool {
+        match self.chars.peek() {
+            Some(&(i, '/')) if self.source[i..].starts_with("//") => {
+                while self.chars.next_if(|&(_, c)| c != '\n').is_some() {}
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn skip_ignored(&mut self) {
+        while self.skip_whitespace() || self.skip_comment() {}
+    }
 }
 
 impl<'a> Iterator for Lexemes<'a> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some((_, c)) = self.chars.next_if(|&(_, c)| c.is_whitespace()) {
-            if c == '\n' {
-                self.line += 1;
-            }
-        }
+        self.skip_ignored();
 
         let (_, ch) = match self.chars.next() {
             None => {
