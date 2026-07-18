@@ -1,5 +1,5 @@
 #[derive(Debug)]
-pub enum Token {
+pub enum Token<'a> {
     // one character
     LeftParen,
     RightParen,
@@ -25,7 +25,7 @@ pub enum Token {
 
     // literals
     Identifier,
-    String,
+    String(&'a str),
     Number,
 
     // keywords

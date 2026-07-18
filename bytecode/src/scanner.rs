@@ -29,7 +29,7 @@ pub struct Lexemes<'a> {
     done: bool,
 }
 
-impl Lexemes<'_> {
+impl<'a> Lexemes<'a> {
     fn consume_if(&mut self, expected: char) -> bool {
         self.chars.next_if(|&(_, c)| c == expected).is_some()
     }
@@ -58,15 +58,29 @@ impl Lexemes<'_> {
     fn skip_ignored(&mut self) {
         while self.skip_whitespace() || self.skip_comment() {}
     }
+
+    fn string(&mut self, open: usize) -> Token<'a> {
+        let start = open + 1;
+        while let Some((_, c)) = self.chars.next_if(|&(_, c)| c != '"') {
+            if c == '\n' {
+                self.line += 1;
+            }
+        }
+
+        match self.chars.next() {
+            Some((end, '"')) => Token::String(&self.source[start..end]),
+            _ => panic!("unterminated string on line {}", self.line + 1),
+        }
+    }
 }
 
 impl<'a> Iterator for Lexemes<'a> {
-    type Item = Token;
+    type Item = Token<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.skip_ignored();
 
-        let (_, ch) = match self.chars.next() {
+        let (i, ch) = match self.chars.next() {
             None => {
                 if !self.done {
                     self.done = true;
@@ -90,6 +104,7 @@ impl<'a> Iterator for Lexemes<'a> {
             '+' => Token::Plus,
             '/' => Token::Slash,
             '*' => Token::Star,
+            '"' => self.string(i),
             '!' => {
                 if self.consume_if('=') {
                     Token::BangEqual
