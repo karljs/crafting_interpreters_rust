@@ -12,12 +12,17 @@ use std::io::Read;
 
 use log::{Level, log_enabled};
 
-use crate::{chunk::Chunk, opcode::OpCode, vm::VM};
+use crate::{chunk::Chunk, opcode::OpCode, scanner::Scanner, vm::VM};
 
-pub fn run_from_source(mut reader: Box<dyn Read>) -> anyhow::Result<()> {
-    let mut contents = String::new();
-    reader.read_to_string(&mut contents)?;
-    println!("{}", contents);
+pub fn run_from_source(mut reader: impl Read) -> anyhow::Result<()> {
+    let mut source = String::new();
+    reader.read_to_string(&mut source)?;
+
+    let scanner = Scanner::new(source);
+    for token in scanner.lexemes() {
+        println!("{token:?}");
+    }
+
     Ok(())
 }
 
@@ -31,10 +36,10 @@ pub fn run() -> anyhow::Result<()> {
 
     let mut chunk = Chunk::new("test chunk");
     chunk.emit_constant(1.2, 123);
-    chunk.emit_op(OpCode::Negate, 123);
-    chunk.emit_constant(5.0, 123);
-    chunk.emit_op(OpCode::Subtract, 123);
-    chunk.emit_op(OpCode::Return, 124);
+    chunk.emit_op(OpCode::Negate, 124);
+    chunk.emit_constant(5.0, 124);
+    chunk.emit_op(OpCode::Subtract, 124);
+    chunk.emit_op(OpCode::Return, 125);
 
     if log_enabled!(Level::Debug) {
         chunk.disassemble();
