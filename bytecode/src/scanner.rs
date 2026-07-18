@@ -16,12 +16,14 @@ impl Scanner {
     pub fn lexemes(&self) -> Lexemes<'_> {
         Lexemes {
             chars: self.source.chars().peekable(),
+            done: false,
         }
     }
 }
 
 pub struct Lexemes<'a> {
     chars: Peekable<Chars<'a>>,
+    done: bool,
 }
 
 impl<'a> Iterator for Lexemes<'a> {
@@ -33,7 +35,14 @@ impl<'a> Iterator for Lexemes<'a> {
         }
 
         let ch = match self.chars.next() {
-            None => return Some(Token::EOF),
+            None => {
+                if !self.done {
+                    self.done = true;
+                    return Some(Token::EOF);
+                } else {
+                    return None;
+                }
+            }
             Some(c) => c,
         };
 
