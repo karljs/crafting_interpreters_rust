@@ -54,27 +54,28 @@ impl Chunk {
 
     pub fn disassemble(&self) {
         println!("== {} ==", self.name);
+        let mut lines = self.line_bytes();
+        let mut prev = None;
         let mut ip = 0;
         while ip < self.code.len() {
-            ip = self.disassemble_instruction(ip);
-        }
-    }
-
-    fn line_at(&self, ip: usize) -> u32 {
-        let mut remaining = ip;
-        for &(line, count) in &self.lines {
-            if remaining < count {
-                return line;
+            let line = lines.next().unwrap();
+            let next = self.disassemble_instruction(ip, line, prev);
+            for _ in 0..(next - ip - 1) {
+                lines.next();
             }
-            remaining -= count;
+            prev = Some(line);
+            ip = next;
         }
-        panic!("ip {ip} out of range");
     }
 
-    fn disassemble_instruction(&self, ip: usize) -> usize {
-        let line = self.line_at(ip);
-        let prev_line = ip.checked_sub(1).map(|i| self.line_at(i));
-        if prev_line == Some(line) {
+    fn line_bytes(&self) -> impl Iterator<Item = u32> + '_ {
+        self.lines
+            .iter()
+            .flat_map(|&(line, count)| std::iter::repeat(line).take(count))
+    }
+
+    fn disassemble_instruction(&self, ip: usize, line: u32, prev: Option<u32>) -> usize {
+        if prev == Some(line) {
             print!("{ip:04}    | ");
         } else {
             print!("{ip:04} {line:>4} ");
