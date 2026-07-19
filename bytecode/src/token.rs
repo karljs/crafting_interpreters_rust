@@ -24,7 +24,7 @@ pub enum Token<'a> {
     LessEqual,
 
     // literals
-    Identifier,
+    Identifier(&'a str),
     String(&'a str),
     Number(&'a str),
 

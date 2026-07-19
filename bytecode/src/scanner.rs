@@ -87,6 +87,31 @@ impl<'a> Lexemes<'a> {
 
         Token::Number(&self.source[start..self.offset()])
     }
+
+    fn identifier(&mut self, start: usize) -> Token<'a> {
+        self.eat_while(|c| c.is_ascii_alphanumeric() || c == '_');
+        let text = &self.source[start..self.offset()];
+
+        match text {
+            "and" => Token::And,
+            "class" => Token::Class,
+            "else" => Token::Else,
+            "false" => Token::False,
+            "for" => Token::For,
+            "fun" => Token::Fun,
+            "if" => Token::If,
+            "nil" => Token::Nil,
+            "or" => Token::Or,
+            "print" => Token::Print,
+            "return" => Token::Return,
+            "super" => Token::Super,
+            "this" => Token::This,
+            "true" => Token::True,
+            "var" => Token::Var,
+            "while" => Token::While,
+            _ => Token::Identifier(text),
+        }
+    }
 }
 
 impl<'a> Iterator for Lexemes<'a> {
@@ -121,6 +146,7 @@ impl<'a> Iterator for Lexemes<'a> {
             '*' => Token::Star,
             '"' => self.string(),
             '0'..='9' => self.number(i),
+            c if c.is_ascii_alphabetic() || c == '_' => self.identifier(i),
             '!' => {
                 if self.consume_if('=') {
                     Token::BangEqual
