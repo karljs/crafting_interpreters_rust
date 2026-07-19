@@ -71,7 +71,7 @@ impl Chunk {
     fn line_bytes(&self) -> impl Iterator<Item = u32> + '_ {
         self.lines
             .iter()
-            .flat_map(|&(line, count)| std::iter::repeat(line).take(count))
+            .flat_map(|&(line, count)| std::iter::repeat_n(line, count))
     }
 
     fn disassemble_instruction(&self, ip: usize, line: u32, prev: Option<u32>) -> usize {
@@ -87,12 +87,30 @@ impl Chunk {
                 println!("{:<16} {:>4} '{}'", "constant", idx, self.constants[idx]);
                 ip + 2
             }
-            OpCode::Negate   => { println!("negate");   ip + 1 }
-            OpCode::Add      => { println!("add");      ip + 1 }
-            OpCode::Subtract => { println!("subtract"); ip + 1 }
-            OpCode::Multiply => { println!("multiply"); ip + 1 }
-            OpCode::Divide   => { println!("divide");   ip + 1 }
-            OpCode::Return   => { println!("return");   ip + 1 }
+            OpCode::Negate => {
+                println!("negate");
+                ip + 1
+            }
+            OpCode::Add => {
+                println!("add");
+                ip + 1
+            }
+            OpCode::Subtract => {
+                println!("subtract");
+                ip + 1
+            }
+            OpCode::Multiply => {
+                println!("multiply");
+                ip + 1
+            }
+            OpCode::Divide => {
+                println!("divide");
+                ip + 1
+            }
+            OpCode::Return => {
+                println!("return");
+                ip + 1
+            }
         }
     }
 }
